@@ -1,6 +1,6 @@
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
-// Projet: MQ2NetBots.cpp   | Beta (Need Fixes i posted on mq2eqbc forums)
-// Author: s0rCieR          |
+// Projet: MQ2NetBots.cpp   
+// Author: s0rCieR          
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
 // 
 // Deadchicken added .Duration on or about September 2007 and tried not to 
@@ -9,11 +9,17 @@
 // CombatState member added  Thanks mijuki.
 // .Stacks member added
 // 
-//v2.1 Added String Safety - eqmule
+// v2.1 woobs 
+//    Upped most of the maximum values to handle more buffs.
+//    Add Detrimental information to merge in MQ2Debuffs functions 
+// v2.2 Added String Safety - eqmule
+// v3.0 woobs 
+//    Updated .Stacks
+//    Added   .StacksPet
 
 #define        PLUGIN_NAME "MQ2NetBots"
-#define        PLUGIN_DATE     20160727
-#define        PLUGIN_VERS        2.1
+#define        PLUGIN_DATE     20160808
+#define        PLUGIN_VERS        2.2
 
 #define        GEMS_MAX              NUM_SPELL_GEMS
 #define        BUFF_MAX              NUM_LONG_BUFFS
@@ -28,9 +34,21 @@
 
 #define        DEBUGGING             0
 
+#ifdef ISXEQ
+#define ISINDEX() (argc>0)
+#define ISNUMBER() (IsNumber(argv[0]))
+#define GETNUMBER() (atoi(argv[0]))
+#define GETFIRST()    argv[0]
+#else
+#define ISINDEX() (Index[0])
+#define ISNUMBER() (IsNumber(Index))
+#define GETNUMBER() (atoi(Index))
+#define GETFIRST() Index
+#endif
+
 #ifndef PLUGIN_API
   #include "../MQ2Plugin.h"
-using namespace std;
+  using namespace std;
   PreSetup(PLUGIN_NAME);
   PLUGIN_VERSION(PLUGIN_VERS);
   #include <string>
@@ -102,8 +120,8 @@ Blech               Packet('#');         // BotInfo Event Triggers
 BotInfo            *CurBot=0;            // BotInfo Current
 
 long                sTimers[ESIZE];      // Save Timers
-char                sBuffer[ESIZE][256]; // Save Buffer
-char                wBuffer[ESIZE][256]; // Work Buffer
+char                sBuffer[ESIZE][2048]; // Save Buffer
+char                wBuffer[ESIZE][2048]; // Work Buffer
 bool                wChange[ESIZE];      // Work Change
 bool                wUpdate[ESIZE];      // Work Update
 
@@ -174,6 +192,209 @@ bool inGroup(unsigned long ID) {
 
 bool inZoned(unsigned long zID, unsigned long iID) {
   return (GetCharInfo() && GetCharInfo()->zoneId==zID && GetCharInfo()->instance==iID);
+}
+
+// ***************************************************************************
+// Function:    LargerEffectTest
+// Description: Return boolean true if the spell effect is to be ignored
+//              for stacking purposes
+// ***************************************************************************
+BOOL NBLargerEffectTest(PSPELL aSpell, PSPELL bSpell, int i)
+{
+	LONG aAttrib = GetSpellNumEffects(aSpell) > i ? GetSpellAttrib(aSpell, i) : 254;
+	LONG bAttrib = GetSpellNumEffects(bSpell) > i ? GetSpellAttrib(bSpell, i) : 254;
+	if (aAttrib == bAttrib
+		&& (aAttrib == 0		// HP +/-: heals/regen/dd
+            		|| aAttrib == 1		// Ac Mod
+			|| aAttrib == 55	// Add Effect: Absorb Damage
+			|| aAttrib == 69	// Max HP Mod
+			|| aAttrib == 79	// HP Mod
+			|| aAttrib == 114	// Aggro Multiplier
+			|| aAttrib == 127))	// Spell Haste
+		return abs(GetSpellBase(aSpell, i)) >= abs(GetSpellBase(bSpell, i));
+	return false;
+}
+
+// ***************************************************************************
+// Function:    TriggeringEffectSpell
+// Description: Return boolean true if the spell effect is to be ignored
+//              for stacking purposes
+// ***************************************************************************
+BOOL NBTriggeringEffectSpell(PSPELL aSpell, int i)
+{
+	LONG aAttrib = GetSpellNumEffects(aSpell) > i ? GetSpellAttrib(aSpell, i) : 254;
+	return (aAttrib == 85		// Add Proc
+		|| aAttrib == 374 	// Trigger Spell
+		|| aAttrib == 419 	// Add Proc
+		|| aAttrib == 442 	// Trigger Effect
+		|| aAttrib == 443 	// Trigger Effect
+		|| aAttrib == 453 	// Trigger Effect
+		|| aAttrib == 454 	// Trigger Effect
+		|| aAttrib == 475 	// Trigger Spell Non-Item
+		|| aAttrib == 481); 	// Trigger Spell
+}
+
+// ***************************************************************************
+// Function:    DurationWindowTest
+// Description: Return boolean true if the spell effect is to be ignored
+//              for stacking purposes
+// ***************************************************************************
+BOOL NBDurationWindowTest(PSPELL aSpell, PSPELL bSpell, int i)
+{
+	LONG aAttrib = GetSpellNumEffects(aSpell) > i ? GetSpellAttrib(aSpell, i) : 254;
+	LONG bAttrib = GetSpellNumEffects(bSpell) > i ? GetSpellAttrib(bSpell, i) : 254;
+        if ((aSpell->SpellType != 1 && aSpell->SpellType != 2) || (bSpell->SpellType != 1 && bSpell->SpellType != 2) || (aSpell->DurationWindow == bSpell->DurationWindow))
+		return false;
+	return (!(aAttrib == bAttrib &&
+			(aAttrib == 2		// Attack Mod
+			|| aAttrib == 162))); 	// Mitigate Melee Damage
+}
+
+// ***************************************************************************
+// Function:    SpellEffectTest
+// Description: Return boolean true if the spell effect is to be ignored
+//              for stacking purposes
+// ***************************************************************************
+BOOL NBSpellEffectTest(PSPELL aSpell, PSPELL bSpell, int i, BOOL bIgnoreTriggeringEffects, BOOL bIgnoreCrossDuration)
+{
+	LONG aAttrib = GetSpellNumEffects(aSpell) > i ? GetSpellAttrib(aSpell, i) : 254;
+	LONG bAttrib = GetSpellNumEffects(bSpell) > i ? GetSpellAttrib(bSpell, i) : 254;
+	return ((aAttrib == 57 || bAttrib == 57)		// Levitate
+		|| (aAttrib == 134 || bAttrib == 134)		// Limit: Max Level
+		|| (aAttrib == 135 || bAttrib == 135)		// Limit: Resist
+		|| (aAttrib == 136 || bAttrib == 136)		// Limit: Target
+		|| (aAttrib == 137 || bAttrib == 137)		// Limit: Effect
+		|| (aAttrib == 138 || bAttrib == 138)		// Limit: SpellType
+		|| (aAttrib == 139 || bAttrib == 139)		// Limit: Spell
+		|| (aAttrib == 140 || bAttrib == 140)		// Limit: Min Duraction
+		|| (aAttrib == 141 || bAttrib == 141)		// Limit: Instant
+		|| (aAttrib == 142 || bAttrib == 142)		// Limit: Min Level
+		|| (aAttrib == 143 || bAttrib == 143)		// Limit: Min Cast Time
+		|| (aAttrib == 144 || bAttrib == 144)		// Limit: Max Cast Time
+		|| (aAttrib == 254 || bAttrib == 254)		// Placeholder
+		|| (aAttrib == 311 || bAttrib == 311)		// Limit: Combat Skills not Allowed
+		|| (aAttrib == 339 || bAttrib == 339)		// Trigger DoT on cast
+		|| (aAttrib == 340 || bAttrib == 340)		// Trigger DD on cast
+		|| (aAttrib == 348 || bAttrib == 348)		// Limit: Min Mana
+		|| (aAttrib == 385 || bAttrib == 385)		// Limit: Spell Group
+		|| (aAttrib == 391 || bAttrib == 391)		// Limit: Max Mana
+		|| (aAttrib == 403 || bAttrib == 403)		// Limit: Spell Class
+		|| (aAttrib == 404 || bAttrib == 404)		// Limit: Spell Subclass
+		|| (aAttrib == 411 || bAttrib == 411)		// Limit: Player Class
+		|| (aAttrib == 412 || bAttrib == 412)		// Limit: Race
+		|| (aAttrib == 414 || bAttrib == 414)		// Limit: Casting Skill
+		|| (aAttrib == 415 || bAttrib == 415)		// Limit: Item Class
+		|| (aAttrib == 420 || bAttrib == 420)		// Limit: Use
+		|| (aAttrib == 421 || bAttrib == 421)		// Limit: Use Amt
+		|| (aAttrib == 422 || bAttrib == 422)		// Limit: Use Min
+		|| (aAttrib == 423 || bAttrib == 423)		// Limit: Use Type
+		|| (aAttrib == 428 || bAttrib == 428)		// Limit: Skill
+		|| (aAttrib == 442 || bAttrib == 442)		// Trigger Effect
+		|| (aAttrib == 443 || bAttrib == 443)		// Trigger Effect
+		|| (aAttrib == 453 || bAttrib == 453)		// Trigger Effect
+		|| (aAttrib == 454 || bAttrib == 454)		// Trigger Effect
+		|| (aAttrib == 460 || bAttrib == 460)		// Limit: Include Non-Focusable
+		|| (aAttrib == 475 || bAttrib == 475)		// Trigger Spell Non-Item
+		|| (aAttrib == 479 || bAttrib == 479)		// Limit: Value
+		|| (aAttrib == 480 || bAttrib == 480)		// Limit: Value
+		|| (aAttrib == 481 || bAttrib == 481)		// Trigger Spell
+		|| (aAttrib == 485 || bAttrib == 485)		// Limit: Caster Class
+		|| (aAttrib == 486 || bAttrib == 486)		// Limit: Caster
+		|| (NBLargerEffectTest(aSpell, bSpell, i))	// Ignore if the new effect is greater than the old effect
+		|| (bIgnoreTriggeringEffects && (NBTriggeringEffectSpell(aSpell, i) || NBTriggeringEffectSpell(bSpell, i)))	// Ignore triggering effects validation
+		|| (bIgnoreCrossDuration && NBDurationWindowTest(aSpell, bSpell, i)));	// Ignore if the effects cross Long/Short Buff windows (with exceptions)
+}
+
+// ***************************************************************************
+// Function:    BuffStackTest
+// Description: Return boolean true if the two spells will stack
+// ***************************************************************************
+BOOL NBBuffStackTest(PSPELL aSpell, PSPELL bSpell, BOOL bIgnoreTriggeringEffects, BOOL bIgnoreCrossDuration)
+{
+	if (aSpell->ID == bSpell->ID)
+		return true;
+
+	// We need to loop over the largest of the two, this may seem silly but one could have stacking command blocks
+	// which we will always need to check.
+	LONG effects = max(GetSpellNumEffects(aSpell), GetSpellNumEffects(bSpell));
+	for (int i = 0; i < effects; i++) {
+		//Compare 1st Buff to 2nd. If Attrib[i]==254 its a place holder. If it is 10 it
+		//can be 1 of 3 things: PH(Base=0), CHA(Base>0), Lure(Base=-6). If it is Lure or
+		//Placeholder, exclude it so slots don't match up. Now Check to see if the slots
+		//have equal attribute values. If the do, they don't stack.
+		LONG aAttrib = 254, bAttrib = 254; // Default to placeholder ...
+		LONG aBase = 0, bBase = 0, aBase2 = 0, bBase2 = 0;
+		if (GetSpellNumEffects(aSpell) > i) {
+			aAttrib = GetSpellAttrib(aSpell, i);
+			aBase = GetSpellBase(aSpell, i);
+			aBase2 = GetSpellBase2(aSpell, i);
+		}
+		if (GetSpellNumEffects(bSpell) > i) {
+			bAttrib = GetSpellAttrib(bSpell, i);
+			bBase = GetSpellBase(bSpell, i);
+			bBase2 = GetSpellBase2(bSpell, i);
+		}
+//		if (TriggeringEffectSpell(aSpell, i) || TriggeringEffectSpell(bSpell, i)) {
+//			if (!BuffStackTest(GetSpellByID(TriggeringEffectSpell(aSpell, i) ? aBase2 : aSpell->ID), GetSpellByID(TriggeringEffectSpell(bSpell, i) ? bBase2 : bSpell->ID), bIgnoreTriggeringEffects))
+//				return false;
+//		}
+		if (bAttrib == aAttrib && !NBSpellEffectTest(aSpell, bSpell, i, bIgnoreTriggeringEffects, bIgnoreCrossDuration)) {
+			if (aAttrib == 55 && bAttrib == 55) {
+				//WriteChatf("Increase Absorb Damage by %d over %d", aBase, bBase);
+				return (aBase >= bBase);
+			}
+			else if (!((bAttrib == 10 && (bBase == -6 || bBase == 0)) ||
+				(aAttrib == 10 && (aBase == -6 || aBase == 0)) ||
+				(bAttrib == 79 && bBase > 0 && bSpell->TargetType == 6) ||
+				(aAttrib == 79 && aBase > 0 && aSpell->TargetType == 6) ||
+				(bAttrib == 0 && bBase < 0) ||
+				(aAttrib == 0 && aBase < 0) ||
+				(bAttrib == 148 || bAttrib == 149) ||
+				(aAttrib == 148 || aAttrib == 149))) {
+				return false;
+			}
+		}
+		//Check to see if second buffs blocks first buff:
+		//148: Stacking: Block new spell if slot %d is effect
+		//149: Stacking: Overwrite existing spell if slot %d is effect
+		if (bAttrib == 148 || bAttrib == 149) {
+			// in this branch we know bSpell has enough slots
+			int tmpSlot = GetSpellCalc(bSpell, i) - 200 - 1;
+			int tmpAttrib = bBase;
+			if (GetSpellNumEffects(aSpell) > tmpSlot) { // verify aSpell has that slot
+				if (GetSpellMax(bSpell, i) > 0) {
+					int tmpVal = abs(GetSpellMax(bSpell, i));
+					if (GetSpellAttrib(aSpell, tmpSlot) == tmpAttrib && GetSpellBase(aSpell, tmpSlot) < tmpVal) {
+						return false;
+					}
+				}
+				else if (GetSpellAttrib(aSpell, tmpSlot) == tmpAttrib) {
+					return false;
+				}
+			}
+		}
+		//Now Check to see if the first buff blocks second buff. This is necessary 
+		//because only some spells carry the Block Slot. Ex. Brells and Spiritual 
+		//Vigor don't stack Brells has 1 slot total, for HP. Vigor has 4 slots, 2 
+		//of which block Brells.
+		if (aAttrib == 148 || aAttrib == 149) {
+			// in this branch we know aSpell has enough slots
+			int tmpSlot = GetSpellCalc(aSpell, i) - 200 - 1;
+			int tmpAttrib = aBase;
+			if (GetSpellNumEffects(bSpell) > tmpSlot) { // verify bSpell has that slot
+				if (GetSpellMax(aSpell, i) > 0) {
+					int tmpVal = abs(GetSpellMax(aSpell, i));
+					if (GetSpellAttrib(bSpell, tmpSlot) == tmpAttrib && GetSpellBase(bSpell, tmpSlot) < tmpVal) {
+						return false;
+					}
+				}
+				else if (GetSpellAttrib(bSpell, tmpSlot) == tmpAttrib) {
+					return false;
+				}
+			}
+		}
+	}
+	return true;
 }
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
@@ -276,7 +497,7 @@ void __stdcall ParseInfo(unsigned int ID, void *pData, PBLECHVALUE pValues) {
       case 37: CurBot->UnusedAA =atol(pValues->Value);        break; 
       case 38: CurBot->CombatState=atol(pValues->Value);      break; 
       case 39: strcpy_s(CurBot->Note,pValues->Value);	      break;
-      case 40: InfoDetr(pValues->Value);                      break; 
+      case 40: InfoDetr(pValues->Value);                      break;
     }
     pValues=pValues->pNext;
   }
@@ -299,15 +520,17 @@ PSTR MakeDURAS(CHAR(&Buffer)[_Size]) {
 */
 
 template <unsigned int _Size>PSTR MakeBUFFS(CHAR(&Buffer)[_Size]) {
-  long SpellID; char tmp[MAX_STRING]; Buffer[0]=0;
+	long SpellID; char tmp[MAX_STRING] = { 0 }; Buffer[0] = '\0';
   for(int b=0; b<BUFF_MAX; b++)
     if((SpellID=GetCharInfo2()->Buff[b].SpellID)>0) {
       sprintf_s(tmp,"%d:",SpellID);
       strcat_s(Buffer,tmp);
     }
+  if(strlen(Buffer)) {
   sprintf_s(tmp,"|F=${Me.FreeBuffSlots}");
   ParseMacroData(tmp, sizeof(tmp));
   strcat_s(Buffer,tmp);
+  }
   return Buffer;
 }
 
@@ -327,7 +550,7 @@ template <unsigned int _Size>PSTR MakeENDUS(CHAR(&Buffer)[_Size]) {
 }
 
 template <unsigned int _Size>PSTR MakeEXPER(CHAR(&Buffer)[_Size]) {
-  sprintf_s(Buffer,"%I64d:%d",GetCharInfo()->Exp,GetCharInfo()->AAExp);
+  sprintf_s(Buffer,"%d:%d",GetCharInfo()->Exp,GetCharInfo()->AAExp);
   return Buffer;
 }
 
@@ -392,7 +615,7 @@ PSTR MakeSPGEM(CHAR(&Buffer)[_Size]) {
 */
 
 template <unsigned int _Size>PSTR MakeSONGS(CHAR(&Buffer)[_Size]) {
-  long SpellID; char tmp[MAX_STRING]; Buffer[0]=0;
+	long SpellID = 0; char tmp[MAX_STRING] = { 0 }; Buffer[0] = '\0';
   for(int b=0; b<SONG_MAX; b++)
     if((SpellID=GetCharInfo2()->ShortBuff[b].SpellID)>0) {
       sprintf_s(tmp,"%d:",SpellID);
@@ -403,22 +626,22 @@ template <unsigned int _Size>PSTR MakeSONGS(CHAR(&Buffer)[_Size]) {
 
 template <unsigned int _Size>PSTR MakeSTATE(CHAR(&Buffer)[_Size]) {
   WORD Status=0;
-  if(*EQADDR_ATTACK)                                      Status |= STATE_ATTACK;
-  if(pRaid && pRaid->RaidMemberCount)                     Status |= STATE_RAID;
-  if(GetCharInfo()->Stunned)                              Status |= STATE_STUN;
-  if(GetCharInfo()->pGroupInfo)                           Status |= STATE_GROUP;
-  if(FindSpeed(GetCharInfo()->pSpawn))                    Status |= STATE_MOVING;
-  if(GetCharInfo()->pSpawn->Mount)                        Status |= STATE_MOUNT;
-  if(GetCharInfo()->pSpawn->AFK)                          Status |= STATE_AFK;
-  if(GetCharInfo()->pSpawn->HideMode)                     Status |= STATE_INVIS;
-  if(GetCharInfo()->pSpawn->mPlayerPhysicsClient.Levitate)                     Status |= STATE_LEV;
-  if(GetCharInfo()->pSpawn->LFG)                          Status |= STATE_LFG;
-  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_DEAD)  Status |= STATE_DEAD;
-  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_FEIGN) Status |= STATE_FEIGN;
-  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_DUCK)  Status |= STATE_DUCK;
-  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_BIND)  Status |= STATE_BIND;
-  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_STAND) Status |= STATE_STAND;
-  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_SIT)   Status |= STATE_SIT;
+  if(*EQADDR_ATTACK)                                       Status |= STATE_ATTACK;
+  if(pRaid && pRaid->RaidMemberCount)                      Status |= STATE_RAID;
+  if(GetCharInfo()->Stunned)                               Status |= STATE_STUN;
+  if(GetCharInfo()->pGroupInfo)                            Status |= STATE_GROUP;
+  if(FindSpeed(GetCharInfo()->pSpawn))                     Status |= STATE_MOVING;
+  if(GetCharInfo()->pSpawn->Mount)                         Status |= STATE_MOUNT;
+  if(GetCharInfo()->pSpawn->AFK)                           Status |= STATE_AFK;
+  if(GetCharInfo()->pSpawn->HideMode)                      Status |= STATE_INVIS;
+  if(GetCharInfo()->pSpawn->mPlayerPhysicsClient.Levitate) Status |= STATE_LEV;
+  if(GetCharInfo()->pSpawn->LFG)                           Status |= STATE_LFG;
+  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_DEAD)   Status |= STATE_DEAD;
+  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_FEIGN)  Status |= STATE_FEIGN;
+  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_DUCK)   Status |= STATE_DUCK;
+  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_BIND)   Status |= STATE_BIND;
+  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_STAND)  Status |= STATE_STAND;
+  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_SIT)    Status |= STATE_SIT;
   _itoa_s(Status,Buffer,10);
   return Buffer;
 }
@@ -562,7 +785,7 @@ class MQ2NetBotsType : public MQ2Type {
 
 private:
   map<string,BotInfo>::iterator l;
-  BotInfo *BotRec;
+  BotInfo *BotRec = 0;
   char Temps[MAX_STRING];
   char Works[MAX_STRING];
   long Cpt;
@@ -656,6 +879,7 @@ public:
     Resistance=86,
     Detrimental=87,
     NoCure=88,
+    StacksPet=89, 
    };
 
   MQ2NetBotsType():MQ2Type("NetBots") {
@@ -745,17 +969,19 @@ public:
     TypeMember(Trigger);
     TypeMember(Resistance);
     TypeMember(Detrimental);
-    TypeMember(NoCure);
+    TypeMember(NoCure);	
+    TypeMember(StacksPet);
   }
 
   void Search(PCHAR Index) {
-    if(!Index[0]) BotRec=0;
-    else if(!BotRec || strcmp(Index,BotRec->Name)!=0)
+	if(!Index || Index && Index[0] == '\0')
+		BotRec=0;
+    else if(!BotRec || (BotRec && _stricmp(BotRec->Name,Index)))
       BotRec=BotFind(Index);
   }
 
   bool GetMember(MQ2VARPTR VarPtr, PCHAR Member, PCHAR Index, MQ2TYPEVAR &Dest) {
-    if(PMQ2TYPEMEMBER pMember=MQ2NetBotsType::FindMember(Member)) {
+    if (PMQ2TYPEMEMBER pMember=MQ2NetBotsType::FindMember(Member)) {
       switch((Information)pMember->ID) {
         case Enable:
           Dest.Type=pBoolType;
@@ -799,7 +1025,8 @@ public:
           Dest.Ptr=Temps;
           return true;
       }
-      if(BotRec) switch((Information)pMember->ID) {
+    if (BotRec) {
+      switch ((Information)pMember->ID) {
         case Name:
           Dest.Type=pStringType;
           Dest.Ptr=Temps;
@@ -1019,7 +1246,7 @@ public:
 */
 	case Buff:
           if(!Index[0]) {
-			sprintf_s(Temps," ");
+				  Temps[0] = '\0';
             for (Cpt=0; Cpt<BUFF_MAX && BotRec->Buff[Cpt]; Cpt++) {
               sprintf_s(Works,"%d ",BotRec->Buff[Cpt]);
               strcat_s(Temps,Works);
@@ -1074,10 +1301,9 @@ public:
               return true;
             }
          	break;
-
         case PetBuff:
           if(!Index[0]) {
-            Temps[0]=0;
+				  Temps[0] = '\0';
             for (Cpt=0; Cpt<PETS_MAX && BotRec->Pets[Cpt]; Cpt++) {
               sprintf_s(Works,"%d ",BotRec->Pets[Cpt]);
               strcat_s(Temps,Works);
@@ -1093,7 +1319,6 @@ public:
               return true;
             }
          	break;
-
          case TotalAA: 
            Dest.Type=pIntType; 
            Dest.DWord=BotRec->TotalAA; 
@@ -1110,42 +1335,73 @@ public:
            Dest.Type=pIntType; 
            Dest.DWord=BotRec->CombatState; 
            return true; 
-         case Stacks: 
-           if(Index[0]) { 
-             Cpt=atoi(Index); 
-             PSPELL pSpll = GetSpellByID(Cpt); 
-             if (!pSpll) { 
-                Dest.Type=pBoolType; 
-                Dest.DWord=false; 
-                return true; 
-             } 
-             // If pSpll have duration then check stacking 
-             if (pSpll->DurationValue1>0) { 
-                // Check if pSpll go to ShortBuff Window or to Buff Window 
-                if (pSpll->DurationWindow) { 
-                   for (Cpt=0; Cpt<SONG_MAX && BotRec->Song[Cpt]; Cpt++) { 
-                      if ((pSpll->ID == BotRec->Song[Cpt]) || !BuffStackTest(pSpll, GetSpellByID(BotRec->Song[Cpt]))) { 
-                         Dest.Type=pBoolType; 
-                         Dest.DWord=false; 
-                         return true; 
-                      } 
-                   } 
-                } else { 
-                   for (Cpt=0; Cpt<BUFF_MAX && BotRec->Buff[Cpt]; Cpt++) { 
-                      if ((pSpll->ID == BotRec->Buff[Cpt]) || !BuffStackTest(pSpll, GetSpellByID(BotRec->Buff[Cpt]))) { 
-                         Dest.Type=pBoolType; 
-                         Dest.DWord=false; 
-                         return true; 
-                      } 
-                   } 
-                } 
-             } 
-             // if we here spell will stack or no duration 
-             Dest.Type=pBoolType; 
-             Dest.DWord=true; 
-             return true; 
-           } 
-           break; 
+         case Stacks:
+         { 
+           Dest.Type=pBoolType; 
+           Dest.DWord = false; 
+           if (!ISINDEX())
+              return true;
+           PSPELL tmpSpell=NULL;
+           if (ISNUMBER())
+              tmpSpell = GetSpellByID(GETNUMBER());
+           else
+              tmpSpell = GetSpellByName(GETFIRST());
+           if (!tmpSpell)
+              return true;
+           Dest.DWord = true;
+           // Check Buffs
+           for (Cpt=0; Cpt<BUFF_MAX; Cpt++) {
+              if (BotRec->Buff[Cpt]) {
+                 if (PSPELL buffSpell = GetSpellByID(BotRec->Buff[Cpt])) {
+                    if (!NBBuffStackTest(tmpSpell, buffSpell, TRUE, TRUE) || (buffSpell == tmpSpell)) {
+                       Dest.DWord = false;
+                       return true;
+                    }
+                 }
+              }
+           }
+           // Check Songs
+           for (Cpt=0; Cpt<SONG_MAX; Cpt++) {
+              if (BotRec->Song[Cpt]) {
+                 if (PSPELL buffSpell = GetSpellByID(BotRec->Song[Cpt])) {
+                    if (!IsBardSong(buffSpell) && !((IsSPAEffect(tmpSpell, SPA_CHANGE_FORM) && !tmpSpell->DurationWindow))) {
+                       if (!NBBuffStackTest(tmpSpell, buffSpell, TRUE, TRUE) || (buffSpell == tmpSpell)) {
+                          Dest.DWord = false;
+                          return true;
+                       }
+                    }
+                 }
+              }
+           }
+           return true;
+         }
+         case StacksPet: 
+         {
+           Dest.Type=pBoolType; 
+           Dest.DWord = false; 
+           if (!ISINDEX())
+              return true;
+           PSPELL tmpSpell=NULL;
+           if (ISNUMBER())
+              tmpSpell = GetSpellByID(GETNUMBER());
+           else
+              tmpSpell = GetSpellByName(GETFIRST());
+           if (!tmpSpell)
+              return true;
+           Dest.DWord = true;
+           // Check Pet Buffs
+           for (Cpt=0; Cpt<PETS_MAX; Cpt++) {
+              if (BotRec->Pets[Cpt]) {
+                 if (PSPELL buffSpell = GetSpellByID(BotRec->Pets[Cpt])) {
+                    if (!NBBuffStackTest(tmpSpell, buffSpell, TRUE, FALSE) || (buffSpell == tmpSpell)) {
+                       Dest.DWord = false;
+                       return true;
+                    }
+                 }
+              }
+           }
+           return true;
+        }
         case Detrimentals:
           Dest.Type=pIntType;
           Dest.Int=BotRec->Detrimental[DETRIMENTALS];
@@ -1278,8 +1534,9 @@ public:
 	case NoCure:
           Dest.Type=pIntType;
           Dest.Int=BotRec->Detrimental[NOCURE];
-          return true;
+          return true; 
       }
+    }
     }
     strcpy_s(Temps,"NULL");
     Dest.Type=pStringType;
@@ -1288,7 +1545,7 @@ public:
   }
 
 bool ToString(MQ2VARPTR VarPtr, PCHAR Destination) {
-    strcpy_s(Destination, MAX_STRING, "TRUE");
+    strcpy_s(Destination,MAX_STRING,"TRUE");
     return true;
   }
 
@@ -1300,7 +1557,9 @@ bool FromData(MQ2VARPTR &VarPtr, MQ2TYPEVAR &Source) {
     return false;
   }
 
-  ~MQ2NetBotsType() { }
+  ~MQ2NetBotsType() {
+	  BotRec = 0;
+  }
 };
 
 BOOL dataNetBots(PCHAR Index, MQ2TYPEVAR &Dest) {
@@ -1427,7 +1686,7 @@ PLUGIN_API VOID InitializePlugin(VOID) {
   Packet.AddEvent("#*#[NB]#*#|C=#16#|#*#[NB]",           ParseInfo, (void *) 16);
   Packet.AddEvent("#*#[NB]#*#|Y=#17#|#*#[NB]",           ParseInfo, (void *) 17);
   Packet.AddEvent("#*#[NB]#*#|X=#18#:#19#|#*#[NB]",      ParseInfo, (void *) 19);
-  Packet.AddEvent("#*#[NB]#*#|F=#21#|#*#[NB]",           ParseInfo, (void *) 21);
+  Packet.AddEvent("#*#[NB]#*#|F=#21#:|#*#[NB]",           ParseInfo, (void *) 21);
   Packet.AddEvent("#*#[NB]#*#|N=#22#|#*#[NB]",           ParseInfo, (void *) 22);
   Packet.AddEvent("#*#[NB]#*#|G=#30#|#*#[NB]",           ParseInfo, (void *) 30);
   Packet.AddEvent("#*#[NB]#*#|B=#31#|#*#[NB]",           ParseInfo, (void *) 31);
@@ -1444,7 +1703,7 @@ PLUGIN_API VOID InitializePlugin(VOID) {
   ZeroMemory(wChange,sizeof(wChange));
   ZeroMemory(wUpdate,sizeof(wUpdate));
   pNetBotsType  = new MQ2NetBotsType;
-  NetNote[0] = 0;
+  NetNote[0] = '\0';
   AddMQ2Data("NetBots" ,dataNetBots);
   AddCommand("/netbots",Command);
   AddCommand("/netnote",CommandNote);
