@@ -1,6 +1,6 @@
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
-// Projet: MQ2NetBots.cpp   
-// Author: s0rCieR          
+// Projet: MQ2NetBots.cpp
+// Author: s0rCieR
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
 // 
 // Deadchicken added .Duration on or about September 2007 and tried not to 
@@ -19,12 +19,12 @@
 
 #define        PLUGIN_NAME "MQ2NetBots"
 #define        PLUGIN_DATE     20160808
-#define        PLUGIN_VERS        2.2
+#define        PLUGIN_VERS        3.0
 
 #define        GEMS_MAX              NUM_SPELL_GEMS
 #define        BUFF_MAX              NUM_LONG_BUFFS
 #define        SONG_MAX              NUM_SHORT_BUFFS
-#define        PETS_MAX              65 
+#define        PETS_MAX              65
 #define        NOTE_MAX		    500
 #define        DETR_MAX		     30
 
@@ -48,12 +48,12 @@
 
 #ifndef PLUGIN_API
   #include "../MQ2Plugin.h"
-  using namespace std;
   PreSetup(PLUGIN_NAME);
   PLUGIN_VERSION(PLUGIN_VERS);
   #include <string>
   #include <map>
   #include "../Blech/Blech.h"
+  using namespace std;
 #endif PLUGIN_API
 
 enum { STATE_DEAD =0x0001, STATE_FEIGN =0x0002, STATE_DUCK  =0x0004, STATE_BIND =0x0008,
@@ -63,7 +63,7 @@ enum { STATE_DEAD =0x0001, STATE_FEIGN =0x0002, STATE_DUCK  =0x0004, STATE_BIND 
 
 enum { BUFFS,CASTD,ENDUS,EXPER,LEADR,LEVEL,LIFES,MANAS, 
        PBUFF,PETIL,SPGEM,SONGS,STATE,TARGT,ZONES,DURAS, 
-       AAPTS,OOCST,NOTE ,DETR ,ESIZE };
+       LOCAT,HEADN,AAPTS,OOCST,NOTE ,DETR ,ESIZE };
 
 enum { RESERVED,DETRIMENTALS,COUNTERS,BLINDED,CASTINGLEVEL,CHARMED,CURSED,DISEASED,ENDUDRAIN,
        FEARED,HEALING,INVULNERABLE,LIFEDRAIN,MANADRAIN,MESMERIZED,POISONED,RESISTANCE,ROOTED,
@@ -71,41 +71,45 @@ enum { RESERVED,DETRIMENTALS,COUNTERS,BLINDED,CASTINGLEVEL,CHARMED,CURSED,DISEAS
 
 class BotInfo {
 public:
-	CHAR              Name[0x40];          // Client NAME
-	CHAR              Leader[0x40];        // Leader Name
-	WORD              State;               // State
-	long              ZoneID;              // Zone ID
-	long              InstID;              // Instance ID
-	long              SpawnID;             // Spawn ID
-	long              ClassID;             // Class ID
-	long              Level;               // Level
-	long              CastID;              // Casting Spell ID
-	long              LifeCur;             // HP Current
-	long              LifeMax;             // HP Maximum
-	long              EnduCur;             // ENDU Current
-	long              EnduMax;             // ENDU Maximum
-	long              ManaCur;             // MANA Current
-	long              ManaMax;             // MANA Maximum
-	long              PetID;               // PET ID
-	long              PetHP;               // PET HP Percentage
-	long              TargetID;            // Target ID
-	long              TargetHP;            // Target HP Percentage
-//	long              Gem[GEMS_MAX];       // Spell Memorized
-	long              Pets[PETS_MAX];      // Spell Pets
-	long              Song[SONG_MAX];      // Spell Song
-	long              Buff[BUFF_MAX];      // Spell Buff
-//	long              Duration[BUFF_MAX];  // Buff duration 
-	long              FreeBuff;            // FreeBuffSlot;
-//	double            glXP;                // glXP
-	DWORD             aaXP;                // aaXP
-	DWORD             XP;                  // XP
-	DWORD             Updated;             // Update
-	long              TotalAA;             // totalAA 
-	long              UsedAA;              // usedAA 
-	long              UnusedAA;            // unusedAA 
-	DWORD             CombatState;         // CombatState 
+  CHAR              Name[0x40];          // Client NAME
+  CHAR              Leader[0x40];        // Leader Name
+  WORD              State;               // State
+  long              ZoneID;              // Zone ID
+  long              InstID;              // Instance ID
+  long              SpawnID;             // Spawn ID
+  long              ClassID;             // Class ID
+  long              Level;               // Level
+  long              CastID;              // Casting Spell ID
+  long              LifeCur;             // HP Current
+  long              LifeMax;             // HP Maximum
+  long              EnduCur;             // ENDU Current
+  long              EnduMax;             // ENDU Maximum
+  long              ManaCur;             // MANA Current
+  long              ManaMax;             // MANA Maximum
+  long              PetID;               // PET ID
+  long              PetHP;               // PET HP Percentage
+  long              TargetID;            // Target ID
+  long              TargetHP;            // Target HP Percentage
+//  long              Gem[GEMS_MAX];       // Spell Memorized
+  long              Pets[PETS_MAX];      // Spell Pets
+  long              Song[SONG_MAX];      // Spell Song
+  long              Buff[BUFF_MAX];      // Spell Buff
+//  long              Duration[BUFF_MAX];  // Buff duration 
+  long              FreeBuff;            // FreeBuffSlot;
+#ifdef EMU
+  double            glXP;                // glXP
+#endif
+  DWORD             aaXP;                // aaXP
+  DWORD             XP;                  // XP
+  DWORD             Updated;             // Update
+  CHAR				Location[0x40];	     // Y,X,Z
+  CHAR			    Heading[0x40];       // Heading
+   long              TotalAA;             // totalAA 
+   long              UsedAA;              // usedAA 
+   long              UnusedAA;            // unusedAA 
+	DWORD             CombatState;         // CombatState
 	CHAR              Note[NOTE_MAX];      // User Mesg
-        int               Detrimental[DSIZE];
+    int               Detrimental[DSIZE];
 };
 
 long                NetInit=0;           // Plugin Initialized?
@@ -463,7 +467,7 @@ int SlotCalculate(PSPELL spell, int slot) {
 
 void __stdcall ParseInfo(unsigned int ID, void *pData, PBLECHVALUE pValues) {
   if(CurBot) while(pValues) {
-    //WriteChatf("Parsing=%s", pValues->Name);
+	//WriteChatf("Parsing=%s", pValues->Name);
     switch(atoi(pValues->Name)) {
       case  1: CurBot->ZoneID   =atol(pValues->Value);        break;
       case  2: CurBot->InstID   =atol(pValues->Value);        break;
@@ -484,20 +488,24 @@ void __stdcall ParseInfo(unsigned int ID, void *pData, PBLECHVALUE pValues) {
       case 17: CurBot->State    =(WORD)atol(pValues->Value);  break;
       case 18: CurBot->XP       =(DWORD)atol(pValues->Value); break;
       case 19: CurBot->aaXP     =(DWORD)atol(pValues->Value); break;
-//    case 20: CurBot->glXP     =atof(pValues->Value);        break;
+#ifdef EMU
+	  case 20: CurBot->glXP     =atof(pValues->Value);        break;
+#endif
       case 21: CurBot->FreeBuff =atol(pValues->Value);        break;
       case 22: strcpy_s(CurBot->Leader,pValues->Value);         break;
-//    case 30: InfoGems(pValues->Value);                      break;
+//      case 30: InfoGems(pValues->Value);                      break;
       case 31: InfoBuff(pValues->Value);                      break;
       case 32: InfoSong(pValues->Value);                      break;
       case 33: InfoPets(pValues->Value);                      break;
-//    case 34: InfoDura(pValues->Value);                      break;
+//      case 34: InfoDura(pValues->Value);                     break;
       case 35: CurBot->TotalAA  =atol(pValues->Value);        break; 
       case 36: CurBot->UsedAA   =atol(pValues->Value);        break; 
       case 37: CurBot->UnusedAA =atol(pValues->Value);        break; 
       case 38: CurBot->CombatState=atol(pValues->Value);      break; 
       case 39: strcpy_s(CurBot->Note,pValues->Value);	      break;
-      case 40: InfoDetr(pValues->Value);                      break;
+      case 40: InfoDetr(pValues->Value);                      break; 
+	  case 89: strcpy_s(CurBot->Location,pValues->Value);		  break;
+	  case 90: strcpy_s(CurBot->Heading,pValues->Value);		  break;
     }
     pValues=pValues->pNext;
   }
@@ -527,9 +535,9 @@ template <unsigned int _Size>PSTR MakeBUFFS(CHAR(&Buffer)[_Size]) {
       strcat_s(Buffer,tmp);
     }
   if(strlen(Buffer)) {
-  sprintf_s(tmp,"|F=${Me.FreeBuffSlots}");
-  ParseMacroData(tmp, sizeof(tmp));
-  strcat_s(Buffer,tmp);
+    sprintf_s(tmp,"|F=${Me.FreeBuffSlots}");
+    ParseMacroData(tmp, sizeof(tmp));
+    strcat_s(Buffer,tmp);
   }
   return Buffer;
 }
@@ -543,16 +551,35 @@ template <unsigned int _Size>PSTR MakeCASTD(CHAR(&Buffer)[_Size]) {
   return Buffer;
 }
 
+template <unsigned int _Size>PSTR MakeHEADN(CHAR(&Buffer)[_Size]) {
+	if(strlen(Buffer)) {
+	  sprintf_s(Buffer,"%4.2f",GetCharInfo()->pSpawn->Heading);
+	}
+	return Buffer;
+}
+template <unsigned int _Size>PSTR MakeLOCAT(CHAR(&Buffer)[_Size]) {
+	if(strlen(Buffer)) {
+	  sprintf_s(Buffer,"%4.2f:%4.2f:%4.2f:%d",GetCharInfo()->pSpawn->Y,GetCharInfo()->pSpawn->X,GetCharInfo()->pSpawn->Z,GetCharInfo()->pSpawn->Animation);
+	}
+	return Buffer;
+}
+
 template <unsigned int _Size>PSTR MakeENDUS(CHAR(&Buffer)[_Size]) {
   if(long EnduMax=GetMaxEndurance()) sprintf_s(Buffer,"%d/%d",GetCharInfo2()->Endurance,EnduMax);
   else strcpy_s(Buffer,"/");
   return Buffer;
 }
-
+#ifndef EMU
 template <unsigned int _Size>PSTR MakeEXPER(CHAR(&Buffer)[_Size]) {
-  sprintf_s(Buffer,"%d:%d",GetCharInfo()->Exp,GetCharInfo()->AAExp);
+  sprintf_s(Buffer,"%I64d:%d",GetCharInfo()->Exp,GetCharInfo()->AAExp);
   return Buffer;
 }
+#else
+template <unsigned int _Size>PSTR MakeEXPER(CHAR(&Buffer)[_Size]) {
+  sprintf_s(Buffer,"%I64d:%d:%02.3f",GetCharInfo()->Exp,GetCharInfo()->AAExp,GetCharInfo()->GroupLeadershipExp);
+  return Buffer;
+}
+#endif
 
 template <unsigned int _Size>PSTR MakeLEADR(CHAR(&Buffer)[_Size]) {
   if (GetCharInfo()->pGroupInfo) 
@@ -626,22 +653,22 @@ template <unsigned int _Size>PSTR MakeSONGS(CHAR(&Buffer)[_Size]) {
 
 template <unsigned int _Size>PSTR MakeSTATE(CHAR(&Buffer)[_Size]) {
   WORD Status=0;
-  if(*EQADDR_ATTACK)                                       Status |= STATE_ATTACK;
-  if(pRaid && pRaid->RaidMemberCount)                      Status |= STATE_RAID;
-  if(GetCharInfo()->Stunned)                               Status |= STATE_STUN;
-  if(GetCharInfo()->pGroupInfo)                            Status |= STATE_GROUP;
-  if(FindSpeed(GetCharInfo()->pSpawn))                     Status |= STATE_MOVING;
-  if(GetCharInfo()->pSpawn->Mount)                         Status |= STATE_MOUNT;
-  if(GetCharInfo()->pSpawn->AFK)                           Status |= STATE_AFK;
-  if(GetCharInfo()->pSpawn->HideMode)                      Status |= STATE_INVIS;
-  if(GetCharInfo()->pSpawn->mPlayerPhysicsClient.Levitate) Status |= STATE_LEV;
-  if(GetCharInfo()->pSpawn->LFG)                           Status |= STATE_LFG;
-  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_DEAD)   Status |= STATE_DEAD;
-  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_FEIGN)  Status |= STATE_FEIGN;
-  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_DUCK)   Status |= STATE_DUCK;
-  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_BIND)   Status |= STATE_BIND;
-  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_STAND)  Status |= STATE_STAND;
-  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_SIT)    Status |= STATE_SIT;
+  if(*EQADDR_ATTACK)                                      Status |= STATE_ATTACK;
+  if(pRaid && pRaid->RaidMemberCount)                     Status |= STATE_RAID;
+  if(GetCharInfo()->Stunned)                              Status |= STATE_STUN;
+  if(GetCharInfo()->pGroupInfo)                           Status |= STATE_GROUP;
+  if(FindSpeed(GetCharInfo()->pSpawn))                    Status |= STATE_MOVING;
+  if(GetCharInfo()->pSpawn->Mount)                        Status |= STATE_MOUNT;
+  if(GetCharInfo()->pSpawn->AFK)                          Status |= STATE_AFK;
+  if(GetCharInfo()->pSpawn->HideMode)                     Status |= STATE_INVIS;
+  if(GetCharInfo()->pSpawn->mPlayerPhysicsClient.Levitate)                     Status |= STATE_LEV;
+  if(GetCharInfo()->pSpawn->LFG)                          Status |= STATE_LFG;
+  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_DEAD)  Status |= STATE_DEAD;
+  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_FEIGN) Status |= STATE_FEIGN;
+  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_DUCK)  Status |= STATE_DUCK;
+  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_BIND)  Status |= STATE_BIND;
+  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_STAND) Status |= STATE_STAND;
+  if(GetCharInfo()->pSpawn->StandState==STANDSTATE_SIT)   Status |= STATE_SIT;
   _itoa_s(Status,Buffer,10);
   return Buffer;
 }
@@ -649,7 +676,7 @@ template <unsigned int _Size>PSTR MakeSTATE(CHAR(&Buffer)[_Size]) {
 template <unsigned int _Size>PSTR MakeOOCST(CHAR(&Buffer)[_Size]) { 
    _itoa_s(((PCPLAYERWND) pPlayerWnd)->CombatState,Buffer,10); 
    return Buffer; 
-} 
+}
 
 template <unsigned int _Size>PSTR MakeAAPTS(CHAR(&Buffer)[_Size]) { 
    sprintf_s(Buffer,"%d:%d:%d",GetCharInfo2()->AAPoints+GetCharInfo2()->AAPointsSpent,GetCharInfo2()->AAPointsSpent,GetCharInfo2()->AAPoints); 
@@ -748,8 +775,10 @@ void BroadCast() {
   sprintf_s(wBuffer[OOCST],"O=%s|",MakeOOCST(Buffer)); 
   sprintf_s(wBuffer[NOTE] ,"U=%s|",MakeNOTE(Buffer));
   sprintf_s(wBuffer[DETR] ,"R=%s|",MakeDETR(Buffer));
+  sprintf_s(wBuffer[LOCAT],"@=%s|",MakeLOCAT(Buffer));
+  sprintf_s(wBuffer[HEADN],"$=%s|",MakeHEADN(Buffer));
 
-
+//  WriteChatf("D=%s|", Buffer);
   for(int i=0; i<ESIZE; i++)
     if((clock()>sTimers[i] && clock()>sTimers[i]+UPDATES) || 0!=strcmp(wBuffer[i],sBuffer[i])) {
       wChange[i]=true;
@@ -760,13 +789,13 @@ void BroadCast() {
     }
   if(nChange) {
     strcpy_s(Buffer,"[NB]|");
-    for(int i=0; i<ESIZE ; i++) 
+    for(int i=0; i<ESIZE ; i++)
       if(wChange[i] || wUpdate[i] && (strlen(Buffer)+strlen(wBuffer[i]))<MAX_STRING-5) {
         strcat_s(Buffer,wBuffer[i]);
         sTimers[i]=(long)clock()+REFRESH;
       }
     strcat_s(Buffer,"[NB]");
- //   DebugSpewAlways("MQ2NetBots::Broadcast(%d/%d) %s",strlen(Buffer),MAX_STRING,Buffer);
+// WriteChatf("Broadcast %s", Buffer);
 
     EQBCBroadCast(Buffer);
     memcpy(sBuffer,wBuffer,sizeof(wBuffer));
@@ -805,7 +834,9 @@ public:
     Level=12,
     PctExp=13,
     PctAAExp=14,
-//    PctGroupLeaderExp=15,
+#ifdef EMU
+	PctGroupLeaderExp=15,
+#endif
     CurrentHPs=16,
     MaxHPs=17,
     PctHPs=18,
@@ -849,9 +880,9 @@ public:
     TotalAA=56, 
     UsedAA=57, 
     UnusedAA=58, 
-    CombatState=59,
-    Stacks=60,
-    Note=61,
+	CombatState=59,
+	Stacks=60,
+	Note=61,
     Detrimentals=62,
     Counters=63,
     Cursed=64,
@@ -879,7 +910,9 @@ public:
     Resistance=86,
     Detrimental=87,
     NoCure=88,
-    StacksPet=89, 
+	Location=89,
+	Heading=90,
+	StacksPet=91, 
    };
 
   MQ2NetBotsType():MQ2Type("NetBots") {
@@ -896,7 +929,9 @@ public:
     TypeMember(Level);
     TypeMember(PctExp);
     TypeMember(PctAAExp);
-//    TypeMember(PctGroupLeaderExp);
+#ifdef EMU
+	TypeMember(PctGroupLeaderExp);
+#endif
     TypeMember(CurrentHPs);
     TypeMember(MaxHPs);
     TypeMember(PctHPs);
@@ -969,575 +1004,586 @@ public:
     TypeMember(Trigger);
     TypeMember(Resistance);
     TypeMember(Detrimental);
-    TypeMember(NoCure);	
-    TypeMember(StacksPet);
+    TypeMember(NoCure);
+	TypeMember(StacksPet);
+	TypeMember(Location);
+	TypeMember(Heading);
   }
 
-  void Search(PCHAR Index) {
+void Search(PCHAR Index) {
 	if(!Index || Index && Index[0] == '\0')
 		BotRec=0;
     else if(!BotRec || (BotRec && _stricmp(BotRec->Name,Index)))
-      BotRec=BotFind(Index);
-  }
+		BotRec=BotFind(Index);
+}
 
   bool GetMember(MQ2VARPTR VarPtr, PCHAR Member, PCHAR Index, MQ2TYPEVAR &Dest) {
-    if (PMQ2TYPEMEMBER pMember=MQ2NetBotsType::FindMember(Member)) {
-      switch((Information)pMember->ID) {
-        case Enable:
-          Dest.Type=pBoolType;
-          Dest.DWord=NetStat;
-          return true;
-        case Listen:
-          Dest.Type=pBoolType;
-          Dest.DWord=NetGrab;
-          return true;
-        case Output:
-          Dest.Type=pBoolType;
-          Dest.DWord=NetSend;
-          return true;
-        case Counts:
-          Cpt=0;
-          if(NetStat && NetGrab)
-            for(l=NetMap.begin(); l!=NetMap.end(); l++) {
-              BotRec=&(*l).second;
-              if(BotRec->SpawnID==0) continue;
-              Cpt++;
-            }
-          Dest.Type=pIntType;
-          Dest.Int=Cpt;
-          return true;
-        case Client:
-          Cpt=0; Temps[0]=0;
-          if(NetStat && NetGrab)
-            for(l=NetMap.begin(); l!=NetMap.end(); l++) {
-              BotRec=&(*l).second;
-              if(BotRec->SpawnID==0) continue;
-              if(Cpt++) strcat_s(Temps," ");
-              strcat_s(Temps,BotRec->Name);
-            }
-          if(IsNumber(Index)) { 
-            int n=atoi(Index); 
-            if (n<0||n>Cpt) break; 
-            strcpy_s(Temps,GetArg(Works,Temps,n)); 
-          } 
+	  if (PMQ2TYPEMEMBER pMember = MQ2NetBotsType::FindMember(Member)) {
+		  switch ((Information)pMember->ID) {
+		  case Enable:
+			  Dest.Type = pBoolType;
+			  Dest.DWord = NetStat;
+			  return true;
+		  case Listen:
+			  Dest.Type = pBoolType;
+			  Dest.DWord = NetGrab;
+			  return true;
+		  case Output:
+			  Dest.Type = pBoolType;
+			  Dest.DWord = NetSend;
+			  return true;
+		  case Counts:
+			  Cpt = 0;
+			  if (NetStat && NetGrab)
+				  for (l = NetMap.begin(); l != NetMap.end(); l++) {
+					  BotRec = &(*l).second;
+					  if (BotRec->SpawnID == 0) continue;
+					  Cpt++;
+				  }
+			  Dest.Type = pIntType;
+			  Dest.Int = Cpt;
+			  return true;
+		  case Client:
+			  Cpt = 0; Temps[0] = 0;
+			  if (NetStat && NetGrab)
+				  for (l = NetMap.begin(); l != NetMap.end(); l++) {
+					  BotRec = &(*l).second;
+					  if (BotRec->SpawnID == 0) continue;
+					  if (Cpt++) strcat_s(Temps, " ");
+					  strcat_s(Temps, BotRec->Name);
+				  }
+			  if (IsNumber(Index)) {
+				  int n = atoi(Index);
+				  if (n<0 || n>Cpt) break;
+				  strcpy_s(Temps, GetArg(Works, Temps, n));
+			  }
 
-          Dest.Type=pStringType;
-          Dest.Ptr=Temps;
-          return true;
-      }
-    if (BotRec) {
-      switch ((Information)pMember->ID) {
-        case Name:
-          Dest.Type=pStringType;
-          Dest.Ptr=Temps;
-          strcpy_s(Temps,BotRec->Name);
-          return true;
-        case Zone:
-          Dest.Type=pIntType;
-          Dest.DWord=BotRec->ZoneID;
-          return true;
-        case Instance:
-          Dest.Type=pIntType;
-          Dest.DWord=BotRec->InstID;
-          return true;
-        case ID:
-          Dest.Type=pIntType;
-          Dest.DWord=BotRec->SpawnID;
-          return true;
-        case Class:
-          Dest.Type=pClassType;
-          Dest.DWord=BotRec->ClassID;
-          return true;
-        case Level:
-          Dest.Type=pIntType;
-          Dest.DWord=BotRec->Level;
-          return true;
-        case PctExp:
-          Dest.Type=pFloatType;
-          Dest.Float=(float)(BotRec->XP/3.30f);
-          return true;
-        case PctAAExp:
-          Dest.Type=pFloatType;
-          Dest.Float=(float)(BotRec->aaXP/3.30f);
-          return true;
-/*
-        case PctGroupLeaderExp:
-          Dest.Type=pFloatType;
-          Dest.Float=(float)(BotRec->glXP/10.0f);
-          return true;
-*/
-        case CurrentHPs:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->LifeCur;
-          return true;
-        case MaxHPs:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->LifeMax;
-          return true;
-        case PctHPs:
-          Dest.Type=pIntType;
-          Dest.Int=(BotRec->LifeMax<1 || BotRec->LifeCur<1)?0:BotRec->LifeCur*100/BotRec->LifeMax;
-          return true;
-        case CurrentEndurance:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->EnduCur;
-          return true;
-        case MaxEndurance:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->EnduMax;
-          return true;
-        case PctEndurance:
-          Dest.Type=pIntType;
-          Dest.Int=(BotRec->EnduMax<1 || BotRec->EnduCur<1)?0:BotRec->EnduCur*100/BotRec->EnduMax;
-          return true;
-        case CurrentMana:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->ManaCur;
-          return true;
-        case MaxMana:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->ManaMax;
-          return true;
-        case PctMana:
-          Dest.Type=pIntType;
-          Dest.Int=(BotRec->ManaMax<1 || BotRec->ManaCur<1)?0:BotRec->ManaCur*100/BotRec->ManaMax;
-          return true;
-        case PetID:
-          Dest.Type=pIntType;
-          Dest.DWord=BotRec->PetID;
-          return true;
-        case PetHP:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->PetHP;
-          return true;
-        case TargetID:
-          Dest.Type=pIntType;
-          Dest.DWord=BotRec->TargetID;
-          return true;
-        case TargetHP:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->TargetHP;
-          return true;
-        case Casting:
-          if(BotRec->CastID) {
-            Dest.Type=pSpellType;
-            Dest.Ptr=GetSpellByID(BotRec->CastID);
-            return true;
-          }
-          break;
-        case State:
-          Dest.Type=pStringType;
-          Dest.Ptr=Temps;
-          if(BotRec->State & STATE_STUN)       strcpy_s(Temps,"STUN");
-          else if(BotRec->State & STATE_STAND) strcpy_s(Temps,"STAND");
-          else if(BotRec->State & STATE_SIT)   strcpy_s(Temps,"SIT");
-          else if(BotRec->State & STATE_DUCK)  strcpy_s(Temps,"DUCK");
-          else if(BotRec->State & STATE_BIND)  strcpy_s(Temps,"BIND");
-          else if(BotRec->State & STATE_FEIGN) strcpy_s(Temps,"FEIGN");
-          else if(BotRec->State & STATE_DEAD)  strcpy_s(Temps,"DEAD");
-          else strcpy_s(Temps,"UNKNOWN");
-          return true;
-        case Attacking:
-          Dest.Type=pBoolType;
-          Dest.DWord=BotRec->State & STATE_ATTACK;
-          return true;
-        case AFK:
-          Dest.Type=pBoolType;
-          Dest.DWord=BotRec->State & STATE_AFK;
-          return true;
-        case Binding:
-          Dest.Type=pBoolType;
-          Dest.DWord=BotRec->State & STATE_BIND;
-          return true;
-        case Ducking:
-          Dest.Type=pBoolType;
-          Dest.DWord=BotRec->State & STATE_DUCK;
-          return true;
-        case Feigning:
-          Dest.Type=pBoolType;
-          Dest.DWord=BotRec->State & STATE_FEIGN;
-          return true;
-        case Grouped:
-          Dest.Type=pBoolType;
-          Dest.DWord=BotRec->State & STATE_GROUP;
-          return true;
-        case Invis:
-          Dest.Type=pBoolType;
-          Dest.DWord=BotRec->State & STATE_INVIS;
-          return true;
-        case Levitating:
-          Dest.Type=pBoolType;
-          Dest.DWord=BotRec->State & STATE_LEV;
-          return true;
-        case LFG:
-          Dest.Type=pBoolType;
-          Dest.DWord=BotRec->State & STATE_LFG;
-          return true;
-        case Mounted:
-          Dest.Type=pBoolType;
-          Dest.DWord=BotRec->State & STATE_MOUNT;
-          return true;
-        case Moving:
-          Dest.Type=pBoolType;
-          Dest.DWord=BotRec->State & STATE_MOVING;
-          return true;
-        case Raid:
-          Dest.Type=pBoolType;
-          Dest.DWord=BotRec->State & STATE_RAID;
-          return true;
-        case Sitting:
-          Dest.Type=pBoolType;
-          Dest.DWord=BotRec->State & STATE_SIT;
-          return true;
-        case Standing:
-          Dest.Type=pBoolType;
-          Dest.DWord=BotRec->State & STATE_STAND;
-          return true;
-        case Stunned:
-          Dest.Type=pBoolType;
-          Dest.DWord=BotRec->State & STATE_STUN;
-          return true;
-        case FreeBuffSlots:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->FreeBuff;
-          return true;
-        case InZone:
-          Dest.Type=pBoolType;
-          Dest.DWord=(inZoned(BotRec->ZoneID,BotRec->InstID));
-          return true;
-        case InGroup:
-          Dest.Type=pBoolType;
-          Dest.DWord=(inZoned(BotRec->ZoneID,BotRec->InstID) && inGroup(BotRec->SpawnID));
-          return true;
-        case Leader:
-          Dest.Type=pStringType;
-          Dest.Ptr=Temps;
-          strcpy_s(Temps,BotRec->Leader);
-          return true;
-        case Note:
-          Dest.Type=pStringType;
-          Dest.Ptr=Temps;
-          strcpy_s(Temps,BotRec->Note);
-          return true;
-
-        case Updated:
-          Dest.Type=pIntType;
-          Dest.Int=clock()-BotRec->Updated;
-          return true;
-/*
-        case Gem:
-          if(!Index[0]) {
-            Temps[0]=0;
-            for (Cpt=0; Cpt<GEMS_MAX; Cpt++) {
-              sprintf_s(Works,"%d ",BotRec->Gem[Cpt]);
-              strcat_s(Temps,Works);
-            }
-            Dest.Ptr=Temps;
-            Dest.Type=pStringType;
-            return true;
-          }
-          Cpt=atoi(Index);
-          if(Cpt<GEMS_MAX && Cpt>-1)
-            if(Dest.Ptr=GetSpellByID(BotRec->Gem[Cpt])) {
-              Dest.Type=pSpellType;
-              return true;
-            }
-        	break;
-*/
-	case Buff:
-          if(!Index[0]) {
-				  Temps[0] = '\0';
-            for (Cpt=0; Cpt<BUFF_MAX && BotRec->Buff[Cpt]; Cpt++) {
-              sprintf_s(Works,"%d ",BotRec->Buff[Cpt]);
-              strcat_s(Temps,Works);
-            }
-            Dest.Ptr=Temps;
-            Dest.Type=pStringType;
-            return true;
-          }
-          Cpt=atoi(Index);
-          if(Cpt<BUFF_MAX && Cpt>-1)
-            if(Dest.Ptr=GetSpellByID(BotRec->Buff[Cpt])) {
-              Dest.Type=pSpellType;
-              return true;
-            }
-          break;
-/*
-	case Duration:
-          if(!Index[0]) {
-            Temps[0]=0;
-            for (Cpt=0; Cpt<BUFF_MAX && BotRec->Duration[Cpt]; Cpt++) {
-              sprintf_s(Works,"%d ",BotRec->Duration[Cpt]);
-              strcat_s(Temps,Works);
-            }
-            Dest.Ptr=Temps;
-            Dest.Type=pStringType;
-            return true;
-          }
-          Cpt=atoi(Index);
-          if(Cpt<BUFF_MAX && Cpt>-1)
-      //   WriteChatf("Duration: %d", BotRec->Duration[Cpt]);
-            if(Dest.Int=BotRec->Duration[Cpt]) {
-              Dest.Type=pIntType;
-              return true;
-             }
-          break;
-*/
-        case ShortBuff:
-          if(!Index[0]) {
-            Temps[0]=0;
-            for (Cpt=0; Cpt<SONG_MAX && BotRec->Song[Cpt]; Cpt++) {
-              sprintf_s(Works,"%d ",BotRec->Song[Cpt]);
-              strcat_s(Temps,Works);
-            }
-            Dest.Ptr=Temps;
-            Dest.Type=pStringType;
-            return true;
-          }
-          Cpt=atoi(Index);
-          if(Cpt<SONG_MAX && Cpt>-1)
-            if(Dest.Ptr=GetSpellByID(BotRec->Song[Cpt])) {
-              Dest.Type=pSpellType;
-              return true;
-            }
-         	break;
-        case PetBuff:
-          if(!Index[0]) {
-				  Temps[0] = '\0';
-            for (Cpt=0; Cpt<PETS_MAX && BotRec->Pets[Cpt]; Cpt++) {
-              sprintf_s(Works,"%d ",BotRec->Pets[Cpt]);
-              strcat_s(Temps,Works);
-            }
-            Dest.Ptr=Temps;
-            Dest.Type=pStringType;
-            return true;
-          }
-          Cpt=atoi(Index);
-          if(Cpt<PETS_MAX && Cpt>-1)
-            if(Dest.Ptr=GetSpellByID(BotRec->Pets[Cpt])) {
-              Dest.Type=pSpellType;
-              return true;
-            }
-         	break;
-         case TotalAA: 
-           Dest.Type=pIntType; 
-           Dest.DWord=BotRec->TotalAA; 
-           return true; 
-         case UsedAA: 
-           Dest.Type=pIntType; 
-           Dest.DWord=BotRec->UsedAA; 
-           return true; 
-         case UnusedAA: 
-           Dest.Type=pIntType; 
-           Dest.DWord=BotRec->UnusedAA; 
-           return true; 
-         case CombatState: 
-           Dest.Type=pIntType; 
-           Dest.DWord=BotRec->CombatState; 
-           return true; 
-         case Stacks:
-         { 
-           Dest.Type=pBoolType; 
-           Dest.DWord = false; 
-           if (!ISINDEX())
-              return true;
-           PSPELL tmpSpell=NULL;
-           if (ISNUMBER())
-              tmpSpell = GetSpellByID(GETNUMBER());
-           else
-              tmpSpell = GetSpellByName(GETFIRST());
-           if (!tmpSpell)
-              return true;
-           Dest.DWord = true;
-           // Check Buffs
-           for (Cpt=0; Cpt<BUFF_MAX; Cpt++) {
-              if (BotRec->Buff[Cpt]) {
-                 if (PSPELL buffSpell = GetSpellByID(BotRec->Buff[Cpt])) {
-                    if (!NBBuffStackTest(tmpSpell, buffSpell, TRUE, TRUE) || (buffSpell == tmpSpell)) {
-                       Dest.DWord = false;
-                       return true;
-                    }
-                 }
-              }
-           }
-           // Check Songs
-           for (Cpt=0; Cpt<SONG_MAX; Cpt++) {
-              if (BotRec->Song[Cpt]) {
-                 if (PSPELL buffSpell = GetSpellByID(BotRec->Song[Cpt])) {
-                    if (!IsBardSong(buffSpell) && !((IsSPAEffect(tmpSpell, SPA_CHANGE_FORM) && !tmpSpell->DurationWindow))) {
-                       if (!NBBuffStackTest(tmpSpell, buffSpell, TRUE, TRUE) || (buffSpell == tmpSpell)) {
-                          Dest.DWord = false;
-                          return true;
-                       }
-                    }
-                 }
-              }
-           }
-           return true;
-         }
-         case StacksPet: 
-         {
-           Dest.Type=pBoolType; 
-           Dest.DWord = false; 
-           if (!ISINDEX())
-              return true;
-           PSPELL tmpSpell=NULL;
-           if (ISNUMBER())
-              tmpSpell = GetSpellByID(GETNUMBER());
-           else
-              tmpSpell = GetSpellByName(GETFIRST());
-           if (!tmpSpell)
-              return true;
-           Dest.DWord = true;
-           // Check Pet Buffs
-           for (Cpt=0; Cpt<PETS_MAX; Cpt++) {
-              if (BotRec->Pets[Cpt]) {
-                 if (PSPELL buffSpell = GetSpellByID(BotRec->Pets[Cpt])) {
-                    if (!NBBuffStackTest(tmpSpell, buffSpell, TRUE, FALSE) || (buffSpell == tmpSpell)) {
-                       Dest.DWord = false;
-                       return true;
-                    }
-                 }
-              }
-           }
-           return true;
-        }
-        case Detrimentals:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[DETRIMENTALS];
-          return true;
-        case Counters:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[COUNTERS];
-          return true;
-        case Cursed:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[CURSED];
-          return true;
-        case Diseased:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[DISEASED];
-          return true;
-        case Poisoned:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[POISONED];
-          return true;
-        case Corrupted:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[CORRUPTED];
-          return true;
-        case EnduDrain:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[ENDUDRAIN];
-          return true;
-        case LifeDrain:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[LIFEDRAIN];
-          return true;
-        case ManaDrain:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[MANADRAIN];
-          return true;
-        case Blinded:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[BLINDED];
-          return true;
-        case CastingLevel:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[CASTINGLEVEL];
-          return true;
-        case Charmed:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[CHARMED];
-          return true;
-        case Feared:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[FEARED];
-          return true;
-        case Healing:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[HEALING];
-          return true;
-        case Invulnerable:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[INVULNERABLE];
-          return true;
-        case Mesmerized:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[MESMERIZED];
-          return true;
-        case Rooted:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[ROOTED];
-          return true;
-        case Silenced:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[SILENCED];
-          return true;
-        case Slowed:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[SLOWED];
-          return true;
-        case Snared:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[SNARED];
-          return true;
-        case SpellCost:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[SPELLCOST];
-          return true;
-        case SpellSlowed:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[SPELLSLOWED];
-          return true;
-        case SpellDamage:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[SPELLDAMAGE];
-          return true;
-        case Trigger:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[TRIGGR];
-          return true;
-        case Resistance:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[RESISTANCE];
-          return true;
-        case Detrimental:
-          Temps[0]=0;  
-	  if(BotRec->Detrimental[CURSED])       strcat_s(Temps,"Cursed ");
-          if(BotRec->Detrimental[DISEASED])     strcat_s(Temps,"Diseased ");
-          if(BotRec->Detrimental[POISONED])     strcat_s(Temps,"Poisoned ");
-          if(BotRec->Detrimental[ENDUDRAIN])    strcat_s(Temps,"EnduDrain ");
-          if(BotRec->Detrimental[LIFEDRAIN])    strcat_s(Temps,"LifeDrain ");
-          if(BotRec->Detrimental[MANADRAIN])    strcat_s(Temps,"ManaDrain ");
-          if(BotRec->Detrimental[BLINDED])      strcat_s(Temps,"Blinded ");
-          if(BotRec->Detrimental[CASTINGLEVEL]) strcat_s(Temps,"CastingLevel ");
-          if(BotRec->Detrimental[CHARMED])      strcat_s(Temps,"Charmed ");
-          if(BotRec->Detrimental[FEARED])       strcat_s(Temps,"Feared ");
-          if(BotRec->Detrimental[HEALING])      strcat_s(Temps,"Healing ");
-          if(BotRec->Detrimental[INVULNERABLE]) strcat_s(Temps,"Invulnerable ");
-          if(BotRec->Detrimental[MESMERIZED])   strcat_s(Temps,"Mesmerized ");
-          if(BotRec->Detrimental[ROOTED])       strcat_s(Temps,"Rooted ");
-          if(BotRec->Detrimental[SILENCED])     strcat_s(Temps,"Silenced ");
-          if(BotRec->Detrimental[SLOWED])       strcat_s(Temps,"Slowed ");
-          if(BotRec->Detrimental[SNARED])       strcat_s(Temps,"Snared ");
-          if(BotRec->Detrimental[SPELLCOST])    strcat_s(Temps,"SpellCost ");
-          if(BotRec->Detrimental[SPELLDAMAGE])  strcat_s(Temps,"SpellDamage ");
-          if(BotRec->Detrimental[SPELLSLOWED])  strcat_s(Temps,"SpellSlowed ");
-          if(BotRec->Detrimental[TRIGGR])       strcat_s(Temps,"Trigger ");
-	  if(BotRec->Detrimental[CORRUPTED])    strcat_s(Temps,"Corrupted ");
-          if(BotRec->Detrimental[RESISTANCE])   strcat_s(Temps,"Resistance ");
-          if(long len=strlen(Temps)) Temps[--len]=0;
-          Dest.Type=pStringType;
-          Dest.Ptr=Temps;
-          return true;
-	case NoCure:
-          Dest.Type=pIntType;
-          Dest.Int=BotRec->Detrimental[NOCURE];
-          return true; 
-      }
-    }
-    }
+			  Dest.Type = pStringType;
+			  Dest.Ptr = Temps;
+			  return true;
+		  }
+		  if (BotRec) {
+			  switch ((Information)pMember->ID) {
+			  case Name:
+				  Dest.Type = pStringType;
+				  Dest.Ptr = Temps;
+				  strcpy_s(Temps, BotRec->Name);
+				  return true;
+			  case Zone:
+				  Dest.Type = pIntType;
+				  Dest.DWord = BotRec->ZoneID;
+				  return true;
+			  case Instance:
+				  Dest.Type = pIntType;
+				  Dest.DWord = BotRec->InstID;
+				  return true;
+			  case ID:
+				  Dest.Type = pIntType;
+				  Dest.DWord = BotRec->SpawnID;
+				  return true;
+			  case Class:
+				  Dest.Type = pClassType;
+				  Dest.DWord = BotRec->ClassID;
+				  return true;
+			  case Level:
+				  Dest.Type = pIntType;
+				  Dest.DWord = BotRec->Level;
+				  return true;
+			  case PctExp:
+				  Dest.Type = pFloatType;
+				  Dest.Float = (float)(BotRec->XP / 3.30f);
+				  return true;
+			  case PctAAExp:
+				  Dest.Type = pFloatType;
+				  Dest.Float = (float)(BotRec->aaXP / 3.30f);
+				  return true;
+#ifdef EMU
+			  case PctGroupLeaderExp:
+				  Dest.Type = pFloatType;
+				  Dest.Float = (float)(BotRec->glXP / 10.0f);
+				  return true;
+#endif
+			  case CurrentHPs:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->LifeCur;
+				  return true;
+			  case MaxHPs:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->LifeMax;
+				  return true;
+			  case PctHPs:
+				  Dest.Type = pIntType;
+				  Dest.Int = (BotRec->LifeMax < 1 || BotRec->LifeCur < 1) ? 0 : BotRec->LifeCur * 100 / BotRec->LifeMax;
+				  return true;
+			  case CurrentEndurance:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->EnduCur;
+				  return true;
+			  case MaxEndurance:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->EnduMax;
+				  return true;
+			  case PctEndurance:
+				  Dest.Type = pIntType;
+				  Dest.Int = (BotRec->EnduMax < 1 || BotRec->EnduCur < 1) ? 0 : BotRec->EnduCur * 100 / BotRec->EnduMax;
+				  return true;
+			  case CurrentMana:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->ManaCur;
+				  return true;
+			  case MaxMana:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->ManaMax;
+				  return true;
+			  case PctMana:
+				  Dest.Type = pIntType;
+				  Dest.Int = (BotRec->ManaMax < 1 || BotRec->ManaCur < 1) ? 0 : BotRec->ManaCur * 100 / BotRec->ManaMax;
+				  return true;
+			  case PetID:
+				  Dest.Type = pIntType;
+				  Dest.DWord = BotRec->PetID;
+				  return true;
+			  case PetHP:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->PetHP;
+				  return true;
+			  case TargetID:
+				  Dest.Type = pIntType;
+				  Dest.DWord = BotRec->TargetID;
+				  return true;
+			  case TargetHP:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->TargetHP;
+				  return true;
+			  case Casting:
+				  if (BotRec->CastID) {
+					  Dest.Type = pSpellType;
+					  Dest.Ptr = GetSpellByID(BotRec->CastID);
+					  return true;
+				  }
+				  break;
+			  case State:
+				  Dest.Type = pStringType;
+				  Dest.Ptr = Temps;
+				  if (BotRec->State & STATE_STUN)       strcpy_s(Temps, "STUN");
+				  else if (BotRec->State & STATE_STAND) strcpy_s(Temps, "STAND");
+				  else if (BotRec->State & STATE_SIT)   strcpy_s(Temps, "SIT");
+				  else if (BotRec->State & STATE_DUCK)  strcpy_s(Temps, "DUCK");
+				  else if (BotRec->State & STATE_BIND)  strcpy_s(Temps, "BIND");
+				  else if (BotRec->State & STATE_FEIGN) strcpy_s(Temps, "FEIGN");
+				  else if (BotRec->State & STATE_DEAD)  strcpy_s(Temps, "DEAD");
+				  else strcpy_s(Temps, "UNKNOWN");
+				  return true;
+			  case Attacking:
+				  Dest.Type = pBoolType;
+				  Dest.DWord = BotRec->State & STATE_ATTACK;
+				  return true;
+			  case AFK:
+				  Dest.Type = pBoolType;
+				  Dest.DWord = BotRec->State & STATE_AFK;
+				  return true;
+			  case Binding:
+				  Dest.Type = pBoolType;
+				  Dest.DWord = BotRec->State & STATE_BIND;
+				  return true;
+			  case Ducking:
+				  Dest.Type = pBoolType;
+				  Dest.DWord = BotRec->State & STATE_DUCK;
+				  return true;
+			  case Feigning:
+				  Dest.Type = pBoolType;
+				  Dest.DWord = BotRec->State & STATE_FEIGN;
+				  return true;
+			  case Grouped:
+				  Dest.Type = pBoolType;
+				  Dest.DWord = BotRec->State & STATE_GROUP;
+				  return true;
+			  case Invis:
+				  Dest.Type = pBoolType;
+				  Dest.DWord = BotRec->State & STATE_INVIS;
+				  return true;
+			  case Levitating:
+				  Dest.Type = pBoolType;
+				  Dest.DWord = BotRec->State & STATE_LEV;
+				  return true;
+			  case LFG:
+				  Dest.Type = pBoolType;
+				  Dest.DWord = BotRec->State & STATE_LFG;
+				  return true;
+			  case Mounted:
+				  Dest.Type = pBoolType;
+				  Dest.DWord = BotRec->State & STATE_MOUNT;
+				  return true;
+			  case Moving:
+				  Dest.Type = pBoolType;
+				  Dest.DWord = BotRec->State & STATE_MOVING;
+				  return true;
+			  case Raid:
+				  Dest.Type = pBoolType;
+				  Dest.DWord = BotRec->State & STATE_RAID;
+				  return true;
+			  case Sitting:
+				  Dest.Type = pBoolType;
+				  Dest.DWord = BotRec->State & STATE_SIT;
+				  return true;
+			  case Standing:
+				  Dest.Type = pBoolType;
+				  Dest.DWord = BotRec->State & STATE_STAND;
+				  return true;
+			  case Stunned:
+				  Dest.Type = pBoolType;
+				  Dest.DWord = BotRec->State & STATE_STUN;
+				  return true;
+			  case FreeBuffSlots:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->FreeBuff;
+				  return true;
+			  case InZone:
+				  Dest.Type = pBoolType;
+				  Dest.DWord = (inZoned(BotRec->ZoneID, BotRec->InstID));
+				  return true;
+			  case InGroup:
+				  Dest.Type = pBoolType;
+				  Dest.DWord = (inZoned(BotRec->ZoneID, BotRec->InstID) && inGroup(BotRec->SpawnID));
+				  return true;
+			  case Leader:
+				  Dest.Type = pStringType;
+				  Dest.Ptr = Temps;
+				  strcpy_s(Temps, BotRec->Leader);
+				  return true;
+			  case Note:
+				  Dest.Type = pStringType;
+				  Dest.Ptr = Temps;
+				  strcpy_s(Temps, BotRec->Note);
+				  return true;
+			  case Location:
+				  Dest.Type = pStringType;
+				  Dest.Ptr = Temps;
+				  strcpy_s(Temps, BotRec->Location);
+				  return true;
+			  case Heading:
+				  Dest.Type = pStringType;
+				  Dest.Ptr = Temps;
+				  strcpy_s(Temps, BotRec->Heading);
+				  return true;
+			  case Updated:
+				  Dest.Type = pIntType;
+				  Dest.Int = clock() - BotRec->Updated;
+				  return true;
+				  /*
+						  case Gem:
+							if(!Index[0]) {
+							  Temps[0]=0;
+							  for (Cpt=0; Cpt<GEMS_MAX; Cpt++) {
+								sprintf_s(Works,"%d ",BotRec->Gem[Cpt]);
+								strcat_s(Temps,Works);
+							  }
+							  Dest.Ptr=Temps;
+							  Dest.Type=pStringType;
+							  return true;
+							}
+							Cpt=atoi(Index);
+							if(Cpt<GEMS_MAX && Cpt>-1)
+							  if(Dest.Ptr=GetSpellByID(BotRec->Gem[Cpt])) {
+								Dest.Type=pSpellType;
+								return true;
+							  }
+							  break;
+				  */
+			  case Buff:
+				  if (!Index[0]) {
+					  Temps[0] = '\0';
+					  for (Cpt = 0; Cpt < BUFF_MAX && BotRec->Buff[Cpt]; Cpt++) {
+						  sprintf_s(Works, "%d ", BotRec->Buff[Cpt]);
+						  strcat_s(Temps, Works);
+					  }
+					  Dest.Ptr = Temps;
+					  Dest.Type = pStringType;
+					  return true;
+				  }
+				  Cpt = atoi(Index);
+				  if (Cpt<BUFF_MAX && Cpt>-1)
+					  if (Dest.Ptr = GetSpellByID(BotRec->Buff[Cpt])) {
+						  Dest.Type = pSpellType;
+						  return true;
+					  }
+				  break;
+				  /*
+						  case Duration:
+							if(!Index[0]) {
+							  Temps[0]=0;
+							  for (Cpt=0; Cpt<BUFF_MAX && BotRec->Duration[Cpt]; Cpt++) {
+								sprintf_s(Works,"%d ",BotRec->Duration[Cpt]);
+								strcat_s(Temps,Works);
+							  }
+							  Dest.Ptr=Temps;
+							  Dest.Type=pStringType;
+							  return true;
+							}
+							Cpt=atoi(Index);
+							if(Cpt<BUFF_MAX && Cpt>-1)
+						//   WriteChatf("Duration: %d", BotRec->Duration[Cpt]);
+							  if(Dest.Int=BotRec->Duration[Cpt]) {
+								Dest.Type=pIntType;
+								return true;
+							   }
+							break;
+				  */
+			  case ShortBuff:
+				  if (!Index[0]) {
+					  Temps[0] = 0;
+					  for (Cpt = 0; Cpt < SONG_MAX && BotRec->Song[Cpt]; Cpt++) {
+						  sprintf_s(Works, "%d ", BotRec->Song[Cpt]);
+						  strcat_s(Temps, Works);
+					  }
+					  Dest.Ptr = Temps;
+					  Dest.Type = pStringType;
+					  return true;
+				  }
+				  Cpt = atoi(Index);
+				  if (Cpt<SONG_MAX && Cpt>-1)
+					  if (Dest.Ptr = GetSpellByID(BotRec->Song[Cpt])) {
+						  Dest.Type = pSpellType;
+						  return true;
+					  }
+				  break;
+			  case PetBuff:
+				  if (!Index[0]) {
+					  Temps[0] = '\0';
+					  for (Cpt = 0; Cpt < PETS_MAX && BotRec->Pets[Cpt]; Cpt++) {
+						  sprintf_s(Works, "%d ", BotRec->Pets[Cpt]);
+						  strcat_s(Temps, Works);
+					  }
+					  Dest.Ptr = Temps;
+					  Dest.Type = pStringType;
+					  return true;
+				  }
+				  Cpt = atoi(Index);
+				  if (Cpt<PETS_MAX && Cpt>-1)
+					  if (Dest.Ptr = GetSpellByID(BotRec->Pets[Cpt])) {
+						  Dest.Type = pSpellType;
+						  return true;
+					  }
+				  break;
+			  case TotalAA:
+				  Dest.Type = pIntType;
+				  Dest.DWord = BotRec->TotalAA;
+				  return true;
+			  case UsedAA:
+				  Dest.Type = pIntType;
+				  Dest.DWord = BotRec->UsedAA;
+				  return true;
+			  case UnusedAA:
+				  Dest.Type = pIntType;
+				  Dest.DWord = BotRec->UnusedAA;
+				  return true;
+			  case CombatState:
+				  Dest.Type = pIntType;
+				  Dest.DWord = BotRec->CombatState;
+				  return true;
+			  case Stacks:
+			  {
+				  Dest.Type = pBoolType;
+				  Dest.DWord = false;
+				  if (!ISINDEX())
+					  return true;
+				  PSPELL tmpSpell = NULL;
+				  if (ISNUMBER())
+					  tmpSpell = GetSpellByID(GETNUMBER());
+				  else
+					  tmpSpell = GetSpellByName(GETFIRST());
+				  if (!tmpSpell)
+					  return true;
+				  Dest.DWord = true;
+				  // Check Buffs
+				  for (Cpt = 0; Cpt < BUFF_MAX; Cpt++) {
+					  if (BotRec->Buff[Cpt]) {
+						  if (PSPELL buffSpell = GetSpellByID(BotRec->Buff[Cpt])) {
+							  if (!NBBuffStackTest(tmpSpell, buffSpell, TRUE, TRUE) || (buffSpell == tmpSpell)) {
+								  Dest.DWord = false;
+								  return true;
+							  }
+						  }
+					  }
+				  }
+				  // Check Songs
+				  for (Cpt = 0; Cpt < SONG_MAX; Cpt++) {
+					  if (BotRec->Song[Cpt]) {
+						  if (PSPELL buffSpell = GetSpellByID(BotRec->Song[Cpt])) {
+							  if (!IsBardSong(buffSpell) && !((IsSPAEffect(tmpSpell, SPA_CHANGE_FORM) && !tmpSpell->DurationWindow))) {
+								  if (!NBBuffStackTest(tmpSpell, buffSpell, TRUE, TRUE) || (buffSpell == tmpSpell)) {
+									  Dest.DWord = false;
+									  return true;
+								  }
+							  }
+						  }
+					  }
+				  }
+				  return true;
+			  }
+			  case StacksPet:
+			  {
+				  Dest.Type = pBoolType;
+				  Dest.DWord = false;
+				  if (!ISINDEX())
+					  return true;
+				  PSPELL tmpSpell = NULL;
+				  if (ISNUMBER())
+					  tmpSpell = GetSpellByID(GETNUMBER());
+				  else
+					  tmpSpell = GetSpellByName(GETFIRST());
+				  if (!tmpSpell)
+					  return true;
+				  Dest.DWord = true;
+				  // Check Pet Buffs
+				  for (Cpt = 0; Cpt < PETS_MAX; Cpt++) {
+					  if (BotRec->Pets[Cpt]) {
+						  if (PSPELL buffSpell = GetSpellByID(BotRec->Pets[Cpt])) {
+							  if (!NBBuffStackTest(tmpSpell, buffSpell, TRUE, FALSE) || (buffSpell == tmpSpell)) {
+								  Dest.DWord = false;
+								  return true;
+							  }
+						  }
+					  }
+				  }
+				  return true;
+			  }
+			  case Detrimentals:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[DETRIMENTALS];
+				  return true;
+			  case Counters:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[COUNTERS];
+				  return true;
+			  case Cursed:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[CURSED];
+				  return true;
+			  case Diseased:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[DISEASED];
+				  return true;
+			  case Poisoned:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[POISONED];
+				  return true;
+			  case Corrupted:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[CORRUPTED];
+				  return true;
+			  case EnduDrain:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[ENDUDRAIN];
+				  return true;
+			  case LifeDrain:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[LIFEDRAIN];
+				  return true;
+			  case ManaDrain:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[MANADRAIN];
+				  return true;
+			  case Blinded:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[BLINDED];
+				  return true;
+			  case CastingLevel:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[CASTINGLEVEL];
+				  return true;
+			  case Charmed:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[CHARMED];
+				  return true;
+			  case Feared:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[FEARED];
+				  return true;
+			  case Healing:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[HEALING];
+				  return true;
+			  case Invulnerable:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[INVULNERABLE];
+				  return true;
+			  case Mesmerized:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[MESMERIZED];
+				  return true;
+			  case Rooted:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[ROOTED];
+				  return true;
+			  case Silenced:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[SILENCED];
+				  return true;
+			  case Slowed:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[SLOWED];
+				  return true;
+			  case Snared:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[SNARED];
+				  return true;
+			  case SpellCost:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[SPELLCOST];
+				  return true;
+			  case SpellSlowed:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[SPELLSLOWED];
+				  return true;
+			  case SpellDamage:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[SPELLDAMAGE];
+				  return true;
+			  case Trigger:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[TRIGGR];
+				  return true;
+			  case Resistance:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[RESISTANCE];
+				  return true;
+			  case Detrimental:
+				  Temps[0] = 0;
+				  if (BotRec->Detrimental[CURSED])       strcat_s(Temps, "Cursed ");
+				  if (BotRec->Detrimental[DISEASED])     strcat_s(Temps, "Diseased ");
+				  if (BotRec->Detrimental[POISONED])     strcat_s(Temps, "Poisoned ");
+				  if (BotRec->Detrimental[ENDUDRAIN])    strcat_s(Temps, "EnduDrain ");
+				  if (BotRec->Detrimental[LIFEDRAIN])    strcat_s(Temps, "LifeDrain ");
+				  if (BotRec->Detrimental[MANADRAIN])    strcat_s(Temps, "ManaDrain ");
+				  if (BotRec->Detrimental[BLINDED])      strcat_s(Temps, "Blinded ");
+				  if (BotRec->Detrimental[CASTINGLEVEL]) strcat_s(Temps, "CastingLevel ");
+				  if (BotRec->Detrimental[CHARMED])      strcat_s(Temps, "Charmed ");
+				  if (BotRec->Detrimental[FEARED])       strcat_s(Temps, "Feared ");
+				  if (BotRec->Detrimental[HEALING])      strcat_s(Temps, "Healing ");
+				  if (BotRec->Detrimental[INVULNERABLE]) strcat_s(Temps, "Invulnerable ");
+				  if (BotRec->Detrimental[MESMERIZED])   strcat_s(Temps, "Mesmerized ");
+				  if (BotRec->Detrimental[ROOTED])       strcat_s(Temps, "Rooted ");
+				  if (BotRec->Detrimental[SILENCED])     strcat_s(Temps, "Silenced ");
+				  if (BotRec->Detrimental[SLOWED])       strcat_s(Temps, "Slowed ");
+				  if (BotRec->Detrimental[SNARED])       strcat_s(Temps, "Snared ");
+				  if (BotRec->Detrimental[SPELLCOST])    strcat_s(Temps, "SpellCost ");
+				  if (BotRec->Detrimental[SPELLDAMAGE])  strcat_s(Temps, "SpellDamage ");
+				  if (BotRec->Detrimental[SPELLSLOWED])  strcat_s(Temps, "SpellSlowed ");
+				  if (BotRec->Detrimental[TRIGGR])       strcat_s(Temps, "Trigger ");
+				  if (BotRec->Detrimental[CORRUPTED])    strcat_s(Temps, "Corrupted ");
+				  if (BotRec->Detrimental[RESISTANCE])   strcat_s(Temps, "Resistance ");
+				  if (long len = strlen(Temps)) Temps[--len] = 0;
+				  Dest.Type = pStringType;
+				  Dest.Ptr = Temps;
+				  return true;
+			  case NoCure:
+				  Dest.Type = pIntType;
+				  Dest.Int = BotRec->Detrimental[NOCURE];
+				  return true;
+			  }
+		  }
+	  }
     strcpy_s(Temps,"NULL");
     Dest.Type=pStringType;
     Dest.Ptr=Temps;
@@ -1545,7 +1591,7 @@ public:
   }
 
 bool ToString(MQ2VARPTR VarPtr, PCHAR Destination) {
-    strcpy_s(Destination,MAX_STRING,"TRUE");
+    strcpy_s(Destination, MAX_STRING, "TRUE");
     return true;
   }
 
@@ -1685,8 +1731,12 @@ PLUGIN_API VOID InitializePlugin(VOID) {
   Packet.AddEvent("#*#[NB]#*#|T=#14#:#15#|#*#[NB]",      ParseInfo, (void *) 15);
   Packet.AddEvent("#*#[NB]#*#|C=#16#|#*#[NB]",           ParseInfo, (void *) 16);
   Packet.AddEvent("#*#[NB]#*#|Y=#17#|#*#[NB]",           ParseInfo, (void *) 17);
+#ifdef EMU
+  Packet.AddEvent("#*#[NB]#*#|X=#18#:#19#:#20#|#*#[NB]", ParseInfo, (void *) 20);
+#else
   Packet.AddEvent("#*#[NB]#*#|X=#18#:#19#|#*#[NB]",      ParseInfo, (void *) 19);
-  Packet.AddEvent("#*#[NB]#*#|F=#21#:|#*#[NB]",           ParseInfo, (void *) 21);
+#endif
+  Packet.AddEvent("#*#[NB]#*#|F=#21#:|#*#[NB]",          ParseInfo, (void *) 21);
   Packet.AddEvent("#*#[NB]#*#|N=#22#|#*#[NB]",           ParseInfo, (void *) 22);
   Packet.AddEvent("#*#[NB]#*#|G=#30#|#*#[NB]",           ParseInfo, (void *) 30);
   Packet.AddEvent("#*#[NB]#*#|B=#31#|#*#[NB]",           ParseInfo, (void *) 31);
@@ -1697,6 +1747,9 @@ PLUGIN_API VOID InitializePlugin(VOID) {
   Packet.AddEvent("#*#[NB]#*#|O=#38#|#*#[NB]",           ParseInfo, (void *) 38); 
   Packet.AddEvent("#*#[NB]#*#|U=#39#|#*#[NB]",           ParseInfo, (void *) 39); 
   Packet.AddEvent("#*#[NB]#*#|R=#40#|#*#[NB]",           ParseInfo, (void *) 40);
+  Packet.AddEvent("#*#[NB]#*#|@=#89#|#*#[NB]",	         ParseInfo, (void *) 89);
+  Packet.AddEvent("#*#[NB]#*#|$=#90#|#*#[NB]",			 ParseInfo, (void *) 90);
+  
   ZeroMemory(sTimers,sizeof(sTimers));
   ZeroMemory(sBuffer,sizeof(sBuffer));
   ZeroMemory(wBuffer,sizeof(wBuffer));
