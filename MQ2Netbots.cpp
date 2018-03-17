@@ -624,7 +624,7 @@ template <unsigned int _Size>PSTR MakePBUFF(CHAR(&Buffer)[_Size]) {
 
 template <unsigned int _Size>PSTR MakePETIL(CHAR(&Buffer)[_Size]) {
   PSPAWNINFO Pet=(PSPAWNINFO)GetSpawnByID(GetCharInfo()->pSpawn->PetID);
-  if(pPetInfoWnd && Pet) sprintf_s(Buffer,"%d:%d",Pet->SpawnID,(Pet->HPCurrent*100/Pet->HPMax));
+  if(pPetInfoWnd && Pet) sprintf_s(Buffer,"%d:%I64d",Pet->SpawnID,(Pet->HPCurrent*100/Pet->HPMax));
   else strcpy_s(Buffer,":");
   return Buffer;
 }
@@ -685,7 +685,7 @@ template <unsigned int _Size>PSTR MakeAAPTS(CHAR(&Buffer)[_Size]) {
 
 template <unsigned int _Size>PSTR MakeTARGT(CHAR(&Buffer)[_Size]) {
   PSPAWNINFO Tar=pTarget?((PSPAWNINFO)pTarget):NULL;
-  if(Tar) sprintf_s(Buffer,"%d:%d",Tar->SpawnID,(Tar->HPCurrent*100/Tar->HPMax));
+  if(Tar) sprintf_s(Buffer,"%d:%I64d",Tar->SpawnID,(Tar->HPCurrent*100/Tar->HPMax));
   else strcpy_s(Buffer,":");
   return Buffer;
 }
@@ -734,7 +734,9 @@ template <unsigned int _Size>PSTR MakeDETR(CHAR(&Buffer)[_Size]) {
         }
         if(d) {
           dValues[DETRIMENTALS]++;
-          if (spell->NoDisspell && !spell->WearOff[0] || spell->TargetType == 6) dValues[NOCURE]++;
+		  /*CastByMe,CastByOther,CastOnYou,CastOnAnother,WearOff*/
+		  char*Wearoff = GetSpellString(spell->ID, 4);
+          if (spell->NoDisspell && !Wearoff || spell->TargetType == 6) dValues[NOCURE]++;
         }
         if(r) dValues[RESISTANCE]++;
       }
