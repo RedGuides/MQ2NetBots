@@ -582,11 +582,23 @@ template <unsigned int _Size>PSTR MakeEXPER(CHAR(&Buffer)[_Size]) {
 #endif
 
 template <unsigned int _Size>PSTR MakeLEADR(CHAR(&Buffer)[_Size]) {
-  if (GetCharInfo()->pGroupInfo) 
-   GetCXStr(GetCharInfo()->pGroupInfo->pLeader->pName,Buffer,MAX_STRING); 
-  else 
-    Buffer[0] = 0; 
-  return Buffer;
+	if (PCHARINFO pChar = GetCharInfo())
+	{
+		if (pChar->pGroupInfo && pChar->pGroupInfo->pLeader && pChar->pGroupInfo->pLeader->pName)
+		{
+			GetCXStr(pChar->pGroupInfo->pLeader->pName, Buffer, MAX_STRING);
+		}
+		else
+		{
+			Buffer[0] = 0;
+		}
+		return Buffer;
+	}
+	else
+	{
+		Buffer[0] = 0;
+	}
+	return Buffer;
 }
 
 template <unsigned int _Size>PSTR MakeNOTE(CHAR(&Buffer)[_Size]) {
@@ -624,7 +636,12 @@ template <unsigned int _Size>PSTR MakePBUFF(CHAR(&Buffer)[_Size]) {
 
 template <unsigned int _Size>PSTR MakePETIL(CHAR(&Buffer)[_Size]) {
   PSPAWNINFO Pet=(PSPAWNINFO)GetSpawnByID(GetCharInfo()->pSpawn->PetID);
-  if(pPetInfoWnd && Pet) sprintf_s(Buffer,"%d:%I64d",Pet->SpawnID,(Pet->HPCurrent*100/Pet->HPMax));
+  if(pPetInfoWnd && Pet)
+	#if !defined(EMU)
+	  sprintf_s(Buffer,"%d:%I64d",Pet->SpawnID,(Pet->HPCurrent*100/Pet->HPMax));
+	#else
+	  sprintf_s(Buffer,"%d:%d",Pet->SpawnID,(Pet->HPCurrent*100/Pet->HPMax));
+	#endif
   else strcpy_s(Buffer,":");
   return Buffer;
 }
@@ -684,10 +701,19 @@ template <unsigned int _Size>PSTR MakeAAPTS(CHAR(&Buffer)[_Size]) {
 } 
 
 template <unsigned int _Size>PSTR MakeTARGT(CHAR(&Buffer)[_Size]) {
-  PSPAWNINFO Tar=pTarget?((PSPAWNINFO)pTarget):NULL;
-  if(Tar) sprintf_s(Buffer,"%d:%I64d",Tar->SpawnID,(Tar->HPCurrent*100/Tar->HPMax));
-  else strcpy_s(Buffer,":");
-  return Buffer;
+	PSPAWNINFO Tar=pTarget?((PSPAWNINFO)pTarget):NULL;
+	if (Tar) {
+		#if !defined EMU
+		sprintf_s(Buffer, "%d:%I64d", Tar->SpawnID, (Tar->HPCurrent * 100 / Tar->HPMax));
+		#else
+		sprintf_s(Buffer, "%d:%d", Tar->SpawnID, (Tar->HPCurrent * 100 / Tar->HPMax));
+		#endif
+	}
+	else
+	{
+		strcpy_s(Buffer, ":");
+	}
+	return Buffer;
 }
 
 template <unsigned int _Size>PSTR MakeZONES(CHAR(&Buffer)[_Size]) {
