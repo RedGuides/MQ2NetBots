@@ -96,7 +96,7 @@ public:
   long              Buff[BUFF_MAX];      // Spell Buff
 //  long              Duration[BUFF_MAX];  // Buff duration 
   long              FreeBuff;            // FreeBuffSlot;
-#ifdef EMU
+#if defined(ROF2EMU) || defined(UFEMU)
   double            glXP;                // glXP
 #endif
   DWORD             aaXP;                // aaXP
@@ -488,7 +488,7 @@ void __stdcall ParseInfo(unsigned int ID, void *pData, PBLECHVALUE pValues) {
       case 17: CurBot->State    =(WORD)atol(pValues->Value);  break;
       case 18: CurBot->XP       =(DWORD)atol(pValues->Value); break;
       case 19: CurBot->aaXP     =(DWORD)atol(pValues->Value); break;
-#ifdef EMU
+#if defined(ROF2EMU) || defined(UFEMU)
 	  case 20: CurBot->glXP     =atof(pValues->Value);        break;
 #endif
       case 21: CurBot->FreeBuff =atol(pValues->Value);        break;
@@ -569,7 +569,7 @@ template <unsigned int _Size>PSTR MakeENDUS(CHAR(&Buffer)[_Size]) {
   else strcpy_s(Buffer,"/");
   return Buffer;
 }
-#ifndef EMU
+#if !defined(ROF2EMU) && !defined(UFEMU)
 template <unsigned int _Size>PSTR MakeEXPER(CHAR(&Buffer)[_Size]) {
   sprintf_s(Buffer,"%I64d:%d",GetCharInfo()->Exp,GetCharInfo()->AAExp);
   return Buffer;
@@ -637,7 +637,7 @@ template <unsigned int _Size>PSTR MakePBUFF(CHAR(&Buffer)[_Size]) {
 template <unsigned int _Size>PSTR MakePETIL(CHAR(&Buffer)[_Size]) {
   PSPAWNINFO Pet=(PSPAWNINFO)GetSpawnByID(GetCharInfo()->pSpawn->PetID);
   if(pPetInfoWnd && Pet)
-	#if !defined(EMU)
+	#if !defined(ROF2EMU) && !defined(UFEMU)
 	  sprintf_s(Buffer,"%d:%I64d",Pet->SpawnID,(Pet->HPCurrent*100/Pet->HPMax));
 	#else
 	  sprintf_s(Buffer,"%d:%d",Pet->SpawnID,(Pet->HPCurrent*100/Pet->HPMax));
@@ -703,7 +703,7 @@ template <unsigned int _Size>PSTR MakeAAPTS(CHAR(&Buffer)[_Size]) {
 template <unsigned int _Size>PSTR MakeTARGT(CHAR(&Buffer)[_Size]) {
 	PSPAWNINFO Tar=pTarget?((PSPAWNINFO)pTarget):NULL;
 	if (Tar) {
-		#if !defined EMU
+		#if !defined(ROF2EMU) && !defined(UFEMU)
 		sprintf_s(Buffer, "%d:%I64d", Tar->SpawnID, (Tar->HPCurrent * 100 / Tar->HPMax));
 		#else
 		sprintf_s(Buffer, "%d:%d", Tar->SpawnID, (Tar->HPCurrent * 100 / Tar->HPMax));
@@ -862,7 +862,7 @@ public:
     Level=12,
     PctExp=13,
     PctAAExp=14,
-#ifdef EMU
+#if defined(ROF2EMU) || defined(UFEMU)
 	PctGroupLeaderExp=15,
 #endif
     CurrentHPs=16,
@@ -957,7 +957,7 @@ public:
     TypeMember(Level);
     TypeMember(PctExp);
     TypeMember(PctAAExp);
-#ifdef EMU
+#if defined(ROF2EMU) || defined(UFEMU)
 	TypeMember(PctGroupLeaderExp);
 #endif
     TypeMember(CurrentHPs);
@@ -1125,7 +1125,7 @@ void Search(PCHAR Index) {
 				  Dest.Type = pFloatType;
 				  Dest.Float = (float)(BotRec->aaXP / 3.30f);
 				  return true;
-#ifdef EMU
+#if defined(ROF2EMU) || defined(UFEMU)
 			  case PctGroupLeaderExp:
 				  Dest.Type = pFloatType;
 				  Dest.Float = (float)(BotRec->glXP / 10.0f);
@@ -1759,7 +1759,7 @@ PLUGIN_API VOID InitializePlugin(VOID) {
   Packet.AddEvent("#*#[NB]#*#|T=#14#:#15#|#*#[NB]",      ParseInfo, (void *) 15);
   Packet.AddEvent("#*#[NB]#*#|C=#16#|#*#[NB]",           ParseInfo, (void *) 16);
   Packet.AddEvent("#*#[NB]#*#|Y=#17#|#*#[NB]",           ParseInfo, (void *) 17);
-#ifdef EMU
+#if defined(ROF2EMU) || defined(UFEMU)
   Packet.AddEvent("#*#[NB]#*#|X=#18#:#19#:#20#|#*#[NB]", ParseInfo, (void *) 20);
 #else
   Packet.AddEvent("#*#[NB]#*#|X=#18#:#19#|#*#[NB]",      ParseInfo, (void *) 19);
