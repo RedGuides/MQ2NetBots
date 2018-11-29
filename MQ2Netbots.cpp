@@ -1,3 +1,5 @@
+
+
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
 // Projet: MQ2NetBots.cpp
 // Author: s0rCieR
@@ -16,6 +18,8 @@
 // v3.0 woobs 
 //    Updated .Stacks
 //    Added   .StacksPet
+// v3.1 woobs 
+//    Updated for Spell Blocker (148) fix from swifty.
 
 #define        PLUGIN_NAME "MQ2NetBots"
 #define        PLUGIN_DATE     20160808
@@ -96,20 +100,20 @@ public:
   long              Buff[BUFF_MAX];      // Spell Buff
 //  long              Duration[BUFF_MAX];  // Buff duration 
   long              FreeBuff;            // FreeBuffSlot;
-#if defined(ROF2EMU) || defined(UFEMU)
+#ifdef EMU
   double            glXP;                // glXP
 #endif
   DWORD             aaXP;                // aaXP
   DWORD             XP;                  // XP
   DWORD             Updated;             // Update
-  CHAR				Location[0x40];	     // Y,X,Z
-  CHAR			    Heading[0x40];       // Heading
-   long              TotalAA;             // totalAA 
-   long              UsedAA;              // usedAA 
-   long              UnusedAA;            // unusedAA 
-	DWORD             CombatState;         // CombatState
-	CHAR              Note[NOTE_MAX];      // User Mesg
-    int               Detrimental[DSIZE];
+  CHAR              Location[0x40];      // Y,X,Z
+  CHAR		    Heading[0x40];       // Heading
+  long              TotalAA;             // totalAA 
+  long              UsedAA;              // usedAA 
+  long              UnusedAA;            // unusedAA 
+  DWORD             CombatState;         // CombatState
+  CHAR              Note[NOTE_MAX];      // User Mesg
+  int               Detrimental[DSIZE];
 };
 
 long                NetInit=0;           // Plugin Initialized?
@@ -363,7 +367,7 @@ BOOL NBBuffStackTest(PSPELL aSpell, PSPELL bSpell, BOOL bIgnoreTriggeringEffects
 		//149: Stacking: Overwrite existing spell if slot %d is effect
 		if (bAttrib == 148 || bAttrib == 149) {
 			// in this branch we know bSpell has enough slots
-			int tmpSlot = GetSpellCalc(bSpell, i) - 200 - 1;
+			int tmpSlot = (bAttrib == 148 ? bBase2 - 1 : GetSpellCalc(bSpell, i) - 200 - 1);
 			int tmpAttrib = bBase;
 			if (GetSpellNumEffects(aSpell) > tmpSlot) { // verify aSpell has that slot
 				if (GetSpellMax(bSpell, i) > 0) {
@@ -377,13 +381,14 @@ BOOL NBBuffStackTest(PSPELL aSpell, PSPELL bSpell, BOOL bIgnoreTriggeringEffects
 				}
 			}
 		}
+		/*
 		//Now Check to see if the first buff blocks second buff. This is necessary 
 		//because only some spells carry the Block Slot. Ex. Brells and Spiritual 
 		//Vigor don't stack Brells has 1 slot total, for HP. Vigor has 4 slots, 2 
 		//of which block Brells.
 		if (aAttrib == 148 || aAttrib == 149) {
 			// in this branch we know aSpell has enough slots
-			int tmpSlot = GetSpellCalc(aSpell, i) - 200 - 1;
+			int tmpSlot = (aAttrib == 148 ? aBase2 - 1 : GetSpellCalc(aSpell, i) - 200 - 1);
 			int tmpAttrib = aBase;
 			if (GetSpellNumEffects(bSpell) > tmpSlot) { // verify bSpell has that slot
 				if (GetSpellMax(aSpell, i) > 0) {
@@ -397,6 +402,7 @@ BOOL NBBuffStackTest(PSPELL aSpell, PSPELL bSpell, BOOL bIgnoreTriggeringEffects
 				}
 			}
 		}
+		*/
 	}
 	return true;
 }
@@ -488,8 +494,8 @@ void __stdcall ParseInfo(unsigned int ID, void *pData, PBLECHVALUE pValues) {
       case 17: CurBot->State    =(WORD)atol(pValues->Value);  break;
       case 18: CurBot->XP       =(DWORD)atol(pValues->Value); break;
       case 19: CurBot->aaXP     =(DWORD)atol(pValues->Value); break;
-#if defined(ROF2EMU) || defined(UFEMU)
-	  case 20: CurBot->glXP     =atof(pValues->Value);        break;
+#ifdef EMU
+      case 20: CurBot->glXP     =atof(pValues->Value);        break;
 #endif
       case 21: CurBot->FreeBuff =atol(pValues->Value);        break;
       case 22: strcpy_s(CurBot->Leader,pValues->Value);         break;
@@ -504,8 +510,8 @@ void __stdcall ParseInfo(unsigned int ID, void *pData, PBLECHVALUE pValues) {
       case 38: CurBot->CombatState=atol(pValues->Value);      break; 
       case 39: strcpy_s(CurBot->Note,pValues->Value);	      break;
       case 40: InfoDetr(pValues->Value);                      break; 
-	  case 89: strcpy_s(CurBot->Location,pValues->Value);		  break;
-	  case 90: strcpy_s(CurBot->Heading,pValues->Value);		  break;
+      case 89: strcpy_s(CurBot->Location,pValues->Value);     break;
+      case 90: strcpy_s(CurBot->Heading,pValues->Value);      break;
     }
     pValues=pValues->pNext;
   }
@@ -552,16 +558,17 @@ template <unsigned int _Size>PSTR MakeCASTD(CHAR(&Buffer)[_Size]) {
 }
 
 template <unsigned int _Size>PSTR MakeHEADN(CHAR(&Buffer)[_Size]) {
-	if(strlen(Buffer)) {
-	  sprintf_s(Buffer,"%4.2f",GetCharInfo()->pSpawn->Heading);
-	}
-	return Buffer;
+  if(strlen(Buffer)) {
+    sprintf_s(Buffer,"%4.2f",GetCharInfo()->pSpawn->Heading);
+  }
+  return Buffer;
 }
+
 template <unsigned int _Size>PSTR MakeLOCAT(CHAR(&Buffer)[_Size]) {
-	if(strlen(Buffer)) {
-	  sprintf_s(Buffer,"%4.2f:%4.2f:%4.2f:%d",GetCharInfo()->pSpawn->Y,GetCharInfo()->pSpawn->X,GetCharInfo()->pSpawn->Z,GetCharInfo()->pSpawn->Animation);
-	}
-	return Buffer;
+  if(strlen(Buffer)) {
+    sprintf_s(Buffer,"%4.2f:%4.2f:%4.2f:%d",GetCharInfo()->pSpawn->Y,GetCharInfo()->pSpawn->X,GetCharInfo()->pSpawn->Z,GetCharInfo()->pSpawn->Animation);
+  }
+  return Buffer;
 }
 
 template <unsigned int _Size>PSTR MakeENDUS(CHAR(&Buffer)[_Size]) {
@@ -569,7 +576,8 @@ template <unsigned int _Size>PSTR MakeENDUS(CHAR(&Buffer)[_Size]) {
   else strcpy_s(Buffer,"/");
   return Buffer;
 }
-#if !defined(ROF2EMU) && !defined(UFEMU)
+
+#ifndef EMU
 template <unsigned int _Size>PSTR MakeEXPER(CHAR(&Buffer)[_Size]) {
   sprintf_s(Buffer,"%I64d:%d",GetCharInfo()->Exp,GetCharInfo()->AAExp);
   return Buffer;
@@ -582,28 +590,22 @@ template <unsigned int _Size>PSTR MakeEXPER(CHAR(&Buffer)[_Size]) {
 #endif
 
 template <unsigned int _Size>PSTR MakeLEADR(CHAR(&Buffer)[_Size]) {
-	if (PCHARINFO pChar = GetCharInfo())
-	{
-		if (pChar->pGroupInfo && pChar->pGroupInfo->pLeader && pChar->pGroupInfo->pLeader->pName)
-		{
-			GetCXStr(pChar->pGroupInfo->pLeader->pName, Buffer, MAX_STRING);
-		}
-		else
-		{
-			Buffer[0] = 0;
-		}
-		return Buffer;
-	}
-	else
-	{
-		Buffer[0] = 0;
-	}
-	return Buffer;
+  if (PCHARINFO pChar = GetCharInfo()) {
+    if (pChar->pGroupInfo && pChar->pGroupInfo->pLeader && pChar->pGroupInfo->pLeader->pName) {
+      GetCXStr(pChar->pGroupInfo->pLeader->pName, Buffer, MAX_STRING);
+    } else {
+      Buffer[0] = 0; 
+    }
+    return Buffer;
+  } else {
+    Buffer[0] = 0;
+  }
+  return Buffer;
 }
 
 template <unsigned int _Size>PSTR MakeNOTE(CHAR(&Buffer)[_Size]) {
-	strcpy_s(Buffer,NetNote);
-	return Buffer;
+  strcpy_s(Buffer,NetNote);
+  return Buffer;
 }
 
 template <unsigned int _Size>PSTR MakeLEVEL(CHAR(&Buffer)[_Size]) {
@@ -637,11 +639,11 @@ template <unsigned int _Size>PSTR MakePBUFF(CHAR(&Buffer)[_Size]) {
 template <unsigned int _Size>PSTR MakePETIL(CHAR(&Buffer)[_Size]) {
   PSPAWNINFO Pet=(PSPAWNINFO)GetSpawnByID(GetCharInfo()->pSpawn->PetID);
   if(pPetInfoWnd && Pet)
-	#if !defined(ROF2EMU) && !defined(UFEMU)
-	  sprintf_s(Buffer,"%d:%I64d",Pet->SpawnID,(Pet->HPCurrent*100/Pet->HPMax));
-	#else
-	  sprintf_s(Buffer,"%d:%d",Pet->SpawnID,(Pet->HPCurrent*100/Pet->HPMax));
-	#endif
+    #if !defined(EMU)
+      sprintf_s(Buffer,"%d:%I64d",Pet->SpawnID,(Pet->HPCurrent*100/Pet->HPMax));
+    #else
+      sprintf_s(Buffer,"%d:%d",Pet->SpawnID,(Pet->HPCurrent*100/Pet->HPMax));
+    #endif
   else strcpy_s(Buffer,":");
   return Buffer;
 }
@@ -701,19 +703,17 @@ template <unsigned int _Size>PSTR MakeAAPTS(CHAR(&Buffer)[_Size]) {
 } 
 
 template <unsigned int _Size>PSTR MakeTARGT(CHAR(&Buffer)[_Size]) {
-	PSPAWNINFO Tar=pTarget?((PSPAWNINFO)pTarget):NULL;
-	if (Tar) {
-		#if !defined(ROF2EMU) && !defined(UFEMU)
-		sprintf_s(Buffer, "%d:%I64d", Tar->SpawnID, (Tar->HPCurrent * 100 / Tar->HPMax));
-		#else
-		sprintf_s(Buffer, "%d:%d", Tar->SpawnID, (Tar->HPCurrent * 100 / Tar->HPMax));
-		#endif
-	}
-	else
-	{
-		strcpy_s(Buffer, ":");
-	}
-	return Buffer;
+  PSPAWNINFO Tar=pTarget?((PSPAWNINFO)pTarget):NULL;
+  if (Tar) {
+    #if !defined EMU
+      sprintf_s(Buffer, "%d:%I64d", Tar->SpawnID, (Tar->HPCurrent * 100 / Tar->HPMax));
+    #else
+      sprintf_s(Buffer, "%d:%d", Tar->SpawnID, (Tar->HPCurrent * 100 / Tar->HPMax));
+    #endif
+  } else {
+    strcpy_s(Buffer, ":");
+  }
+  return Buffer;
 }
 
 template <unsigned int _Size>PSTR MakeZONES(CHAR(&Buffer)[_Size]) {
@@ -760,9 +760,15 @@ template <unsigned int _Size>PSTR MakeDETR(CHAR(&Buffer)[_Size]) {
         }
         if(d) {
           dValues[DETRIMENTALS]++;
-		  /*CastByMe,CastByOther,CastOnYou,CastOnAnother,WearOff*/
-		  char*Wearoff = GetSpellString(spell->ID, 4);
-          if (spell->NoDisspell && !Wearoff || spell->TargetType == 6) dValues[NOCURE]++;
+          switch(spell->ID) {
+            case 45473:  /* Putrid Infection is curable, but missing WearOff message */
+              break;
+            default:
+              /*CastByMe,CastByOther,CastOnYou,CastOnAnother,WearOff*/
+              char*Wearoff = GetSpellString(spell->ID, 4);
+              if ((spell->NoDisspell && !Wearoff) || spell->TargetType == 6) dValues[NOCURE]++;
+              break;
+          }
         }
         if(r) dValues[RESISTANCE]++;
       }
@@ -862,8 +868,8 @@ public:
     Level=12,
     PctExp=13,
     PctAAExp=14,
-#if defined(ROF2EMU) || defined(UFEMU)
-	PctGroupLeaderExp=15,
+#ifdef EMU
+    PctGroupLeaderExp=15,
 #endif
     CurrentHPs=16,
     MaxHPs=17,
@@ -908,9 +914,9 @@ public:
     TotalAA=56, 
     UsedAA=57, 
     UnusedAA=58, 
-	CombatState=59,
-	Stacks=60,
-	Note=61,
+    CombatState=59,
+    Stacks=60,
+    Note=61,
     Detrimentals=62,
     Counters=63,
     Cursed=64,
@@ -938,9 +944,9 @@ public:
     Resistance=86,
     Detrimental=87,
     NoCure=88,
-	Location=89,
-	Heading=90,
-	StacksPet=91, 
+    Location=89,
+    Heading=90,
+    StacksPet=91, 
    };
 
   MQ2NetBotsType():MQ2Type("NetBots") {
@@ -957,8 +963,8 @@ public:
     TypeMember(Level);
     TypeMember(PctExp);
     TypeMember(PctAAExp);
-#if defined(ROF2EMU) || defined(UFEMU)
-	TypeMember(PctGroupLeaderExp);
+#ifdef EMU
+    TypeMember(PctGroupLeaderExp);
 #endif
     TypeMember(CurrentHPs);
     TypeMember(MaxHPs);
@@ -1033,9 +1039,9 @@ public:
     TypeMember(Resistance);
     TypeMember(Detrimental);
     TypeMember(NoCure);
-	TypeMember(StacksPet);
-	TypeMember(Location);
-	TypeMember(Heading);
+    TypeMember(StacksPet);
+    TypeMember(Location);
+    TypeMember(Heading);
   }
 
 void Search(PCHAR Index) {
@@ -1125,7 +1131,7 @@ void Search(PCHAR Index) {
 				  Dest.Type = pFloatType;
 				  Dest.Float = (float)(BotRec->aaXP / 3.30f);
 				  return true;
-#if defined(ROF2EMU) || defined(UFEMU)
+#ifdef EMU
 			  case PctGroupLeaderExp:
 				  Dest.Type = pFloatType;
 				  Dest.Float = (float)(BotRec->glXP / 10.0f);
@@ -1759,7 +1765,7 @@ PLUGIN_API VOID InitializePlugin(VOID) {
   Packet.AddEvent("#*#[NB]#*#|T=#14#:#15#|#*#[NB]",      ParseInfo, (void *) 15);
   Packet.AddEvent("#*#[NB]#*#|C=#16#|#*#[NB]",           ParseInfo, (void *) 16);
   Packet.AddEvent("#*#[NB]#*#|Y=#17#|#*#[NB]",           ParseInfo, (void *) 17);
-#if defined(ROF2EMU) || defined(UFEMU)
+#ifdef EMU
   Packet.AddEvent("#*#[NB]#*#|X=#18#:#19#:#20#|#*#[NB]", ParseInfo, (void *) 20);
 #else
   Packet.AddEvent("#*#[NB]#*#|X=#18#:#19#|#*#[NB]",      ParseInfo, (void *) 19);
