@@ -28,7 +28,6 @@
 
 #define        PLUGIN_NAME "MQ2NetBots"
 #define        PLUGIN_DATE     20190715
-#define        PLUGIN_VERS        3.2
 
 #define        GEMS_MAX              NUM_SPELL_GEMS
 #define        BUFF_MAX              NUM_LONG_BUFFS
@@ -43,27 +42,17 @@
 
 #define        DEBUGGING             0
 
-#ifdef ISXEQ
-#define ISINDEX() (argc>0)
-#define ISNUMBER() (IsNumber(argv[0]))
-#define GETNUMBER() (atoi(argv[0]))
-#define GETFIRST()    argv[0]
-#else
+// FIXME:  Why is all this redefined here?  Even without that, get rid of it.
 #define ISINDEX() (Index[0])
 #define ISNUMBER() (IsNumber(Index))
 #define GETNUMBER() (atoi(Index))
 #define GETFIRST() Index
-#endif
 
-#ifndef PLUGIN_API
-#include "../MQ2Plugin.h"
+#include <mq/Plugin.h>
 PreSetup(PLUGIN_NAME);
-PLUGIN_VERSION(PLUGIN_VERS);
+PLUGIN_VERSION(3.2);
 #include <string>
-#include <map>
 #include "../Blech/Blech.h"
-using namespace std;
-#endif PLUGIN_API
 
 enum {
 	STATE_DEAD = 0x0001, STATE_FEIGN = 0x0002, STATE_DUCK = 0x0004, STATE_BIND = 0x0008,
@@ -134,7 +123,7 @@ long                NetSend = 0;           // Send Information?
 long                NetLast = 0;           // Last Send Time Mark
 char                NetNote[NOTE_MAX];   // Network Note
 
-map<string, BotInfo> NetMap;              // BotInfo Mapped List
+std::map<std::string, BotInfo> NetMap;              // BotInfo Mapped List
 Blech               Packet('#');         // BotInfo Event Triggers
 BotInfo            *CurBot = 0;            // BotInfo Current
 
@@ -150,7 +139,7 @@ int                 dValues[DSIZE];
 
 bool EQBCConnected() {
 	typedef WORD(__cdecl *fEqbcIsConnected)(VOID);
-	PMQPLUGIN pLook = pPlugins;
+	auto pLook = pPlugins;
 	while (pLook && _strnicmp(pLook->szFilename, "mq2eqbc", 8)) pLook = pLook->pNext;
 	if (pLook)
 		if (fEqbcIsConnected checkf = (fEqbcIsConnected)GetProcAddress(pLook->hModule, "isConnected"))
@@ -161,7 +150,7 @@ bool EQBCConnected() {
 void EQBCBroadCast(PCHAR Buffer) {
 	typedef VOID(__cdecl *fEqbcNetBotSendMsg)(PCHAR);
 	if (strlen(Buffer) > 9) {
-		PMQPLUGIN pLook = pPlugins;
+		auto pLook = pPlugins;
 		while (pLook && _strnicmp(pLook->szFilename, "mq2eqbc", 8)) pLook = pLook->pNext;
 		if (pLook)
 			if (fEqbcNetBotSendMsg requestf = (fEqbcNetBotSendMsg)GetProcAddress(pLook->hModule, "NetBotSendMsg")) {
@@ -173,25 +162,25 @@ void EQBCBroadCast(PCHAR Buffer) {
 	}
 }
 
-BotInfo* BotFind(PCHAR Name) {
-	map<string, BotInfo>::iterator f = NetMap.find(Name);
+BotInfo* BotFind(const char* Name) {
+	std::map<std::string, BotInfo>::iterator f = NetMap.find(Name);
 	return(NetMap.end() == f) ? NULL : &(*f).second;
 }
 
 BotInfo* BotLoad(PCHAR Name) {
-	map<string, BotInfo>::iterator f = NetMap.find(Name);
+	std::map<std::string, BotInfo>::iterator f = NetMap.find(Name);
 	if (NetMap.end() == f) {
 		BotInfo RecInfo;
 		ZeroMemory(&RecInfo.Name, sizeof(BotInfo));
 		strcpy_s(RecInfo.Name, Name);
-		NetMap.insert(map<string, BotInfo>::value_type(RecInfo.Name, RecInfo));
+		NetMap.insert(std::map<std::string, BotInfo>::value_type(RecInfo.Name, RecInfo));
 		f = NetMap.find(Name);
 	}
 	return &(*f).second;
 }
 
 void BotQuit(PCHAR Name) {
-	map<string, BotInfo>::iterator f = NetMap.find(Name);
+	std::map<std::string, BotInfo>::iterator f = NetMap.find(Name);
 	if (NetMap.end() != f) NetMap.erase(f);
 }
 
@@ -229,22 +218,22 @@ LONG NBGetEffectAmt(PSPELL pSpell, int i)
 	switch (spa)
 	{
 	case SPA_HASTE:
-	case SPA_PLAYERSIZE:
-	case SPA_BARDOVERHASTE: // Adjust for Base=100
+	case SPA_HEIGHT:
+	case SPA_BARD_HASTE: // Adjust for Base=100
 		base -= 100;
 		max -= 100;
 		break;
-	case SPA_SUMMONCORPSE: // Adjust for base/max swapped
+	case SPA_SUMMON_CORPSE: // Adjust for base/max swapped
 		max = base;
 		base = 0;
 		break;
-	case SPA_SPELLDAMAGE:
-	case SPA_HEALING:
-	case SPA_SPELLMANACOST: // Adjust for base2 used as max
+	case SPA_FOCUS_DAMAGE_MOD:
+	case SPA_FOCUS_HEAL_MOD:
+	case SPA_FOCUS_MANACOST_MOD: // Adjust for base2 used as max
 		max = GetSpellBase2(pSpell, i);
 		break;
-	case SPA_REAGENTCHANCE:
-	case SPA_INCSPELLDMG: // Adjust for base2 used as base
+	case SPA_FOCUS_REAGENT_MOD:
+	case SPA_FOCUS_DAMAGE_AMT_DETRIMENTAL: // Adjust for base2 used as base
 		base = GetSpellBase2(pSpell, i);
 		break;
 	}
@@ -362,7 +351,7 @@ BOOL NBBuffStackTest(PSPELL aSpell, PSPELL bSpell, BOOL bIgnoreTriggeringEffects
 
 	// We need to loop over the largest of the two, this may seem silly but one could have stacking command blocks
 	// which we will always need to check.
-	LONG effects = max(GetSpellNumEffects(aSpell), GetSpellNumEffects(bSpell));
+	LONG effects = std::max(GetSpellNumEffects(aSpell), GetSpellNumEffects(bSpell));
 	for (int i = 0; i < effects; i++) {
 		// Compare 1st Buff to 2nd. If Attrib[i]==254 its a place holder. If it is 10 it
 		// can be 1 of 3 things: PH(Base=0), CHA(Base>0), Lure(Base=-6). If it is Lure or
@@ -443,7 +432,7 @@ BOOL NBBuffStackTest(PSPELL aSpell, PSPELL bSpell, BOOL bIgnoreTriggeringEffects
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
 
-void InfoSong(PCHAR Line) {
+void InfoSong(const char* Line) {
 	char Buf[MAX_STRING];
 	for (long Idx = 0; Idx < SONG_MAX; Idx++) {
 		GetArg(Buf, Line, Idx + 1, FALSE, FALSE, FALSE, ':');
@@ -451,7 +440,7 @@ void InfoSong(PCHAR Line) {
 	}
 }
 
-void InfoPets(PCHAR Line) {
+void InfoPets(const char* Line) {
 	char Buf[MAX_STRING];
 	for (long Idx = 0; Idx < PETS_MAX; Idx++) {
 		GetArg(Buf, Line, Idx + 1, FALSE, FALSE, FALSE, ':');
@@ -469,7 +458,7 @@ void InfoGems(PCHAR Line) {
 }
 */
 
-void InfoBuff(PCHAR Line) {
+void InfoBuff(const char* Line) {
 	char Buf[MAX_STRING];
 	for (long Idx = 0; Idx < BUFF_MAX; Idx++) {
 		GetArg(Buf, Line, Idx + 1, FALSE, FALSE, FALSE, ':');
@@ -490,7 +479,7 @@ void InfoDura(PCHAR Line) {
 }
 */
 
-void InfoDetr(PCHAR Line) {
+void InfoDetr(const char* Line) {
 	char Buf[MAX_STRING];
 	for (long Idx = 0; Idx < DSIZE; Idx++) {
 		GetArg(Buf, Line, Idx + 1, FALSE, FALSE, FALSE, ':');
@@ -507,44 +496,113 @@ int SlotCalculate(PSPELL spell, int slot) {
 void __stdcall ParseInfo(unsigned int ID, void *pData, PBLECHVALUE pValues) {
 	if (CurBot) while (pValues) {
 		//WriteChatf("Parsing=%s", pValues->Name);
-		switch (atoi(pValues->Name)) {
-		case  1: CurBot->ZoneID = atol(pValues->Value);        break;
-		case  2: CurBot->InstID = atol(pValues->Value);        break;
-		case  3: CurBot->SpawnID = atol(pValues->Value);        break;
-		case  4: CurBot->Level = atol(pValues->Value);        break;
-		case  5: CurBot->ClassID = atol(pValues->Value);        break;
-		case  6: CurBot->LifeCur = atol(pValues->Value);        break;
-		case  7: CurBot->LifeMax = atol(pValues->Value);        break;
-		case  8: CurBot->EnduCur = atol(pValues->Value);        break;
-		case  9: CurBot->EnduMax = atol(pValues->Value);        break;
-		case 10: CurBot->ManaCur = atol(pValues->Value);        break;
-		case 11: CurBot->ManaMax = atol(pValues->Value);        break;
-		case 12: CurBot->PetID = atol(pValues->Value);        break;
-		case 13: CurBot->PetHP = atol(pValues->Value);        break;
-		case 14: CurBot->TargetID = atol(pValues->Value);        break;
-		case 15: CurBot->TargetHP = atol(pValues->Value);        break;
-		case 16: CurBot->CastID = atol(pValues->Value);        break;
-		case 17: CurBot->State = (WORD)atol(pValues->Value);  break;
-		case 18: CurBot->XP = (DWORD)atol(pValues->Value); break;
-		case 19: CurBot->aaXP = (DWORD)atol(pValues->Value); break;
+		int tmpInt = GetIntFromString(pValues->Value, 0);
+		switch (GetIntFromString(pValues->Name, 0)) {
+			case  1:
+				CurBot->ZoneID = tmpInt;
+				break;
+			case  2:
+				CurBot->InstID = tmpInt;
+				break;
+			case  3:
+				CurBot->SpawnID = tmpInt;
+				break;
+			case  4:
+				CurBot->Level = tmpInt;
+				break;
+			case  5:
+				CurBot->ClassID = tmpInt;
+				break;
+			case  6:
+				CurBot->LifeCur = tmpInt;
+				break;
+			case  7:
+				CurBot->LifeMax = tmpInt;
+				break;
+			case  8:
+				CurBot->EnduCur = tmpInt;
+				break;
+			case  9:
+				CurBot->EnduMax = tmpInt;
+				break;
+			case 10:
+				CurBot->ManaCur = tmpInt;
+				break;
+			case 11:
+				CurBot->ManaMax = tmpInt;
+				break;
+			case 12:
+				CurBot->PetID = tmpInt;
+				break;
+			case 13:
+				CurBot->PetHP = tmpInt;
+				break;
+			case 14:
+				CurBot->TargetID = tmpInt;
+				break;
+			case 15:
+				CurBot->TargetHP = tmpInt;
+				break;
+			case 16:
+				CurBot->CastID = tmpInt;
+				break;
+			case 17:
+				CurBot->State = (WORD)tmpInt;
+				break;
+			case 18:
+				CurBot->XP = (DWORD)tmpInt;
+				break;
+			case 19:
+				CurBot->aaXP = (DWORD)tmpInt;
+				break;
 #if defined(ROF2EMU) || defined(UFEMU)
-		case 20: CurBot->glXP = atof(pValues->Value);        break;
+			case 20:
+				CurBot->glXP = atof(pValues->Value);
+				break;
 #endif
-		case 21: CurBot->FreeBuff = atol(pValues->Value);        break;
-		case 22: strcpy_s(CurBot->Leader, pValues->Value);       break;
+			case 21:
+				CurBot->FreeBuff = tmpInt;
+				break;
+			case 22:
+				strcpy_s(CurBot->Leader, pValues->Value.c_str());
+				break;
 			//      case 30: InfoGems(pValues->Value);                      break;
-		case 31: InfoBuff(pValues->Value);                      break;
-		case 32: InfoSong(pValues->Value);                      break;
-		case 33: InfoPets(pValues->Value);                      break;
+			case 31:
+				InfoBuff(pValues->Value.c_str());
+				break;
+			case 32:
+				InfoSong(pValues->Value.c_str());
+				break;
+			case 33:
+				InfoPets(pValues->Value.c_str());
+				break;
 			//      case 34: InfoDura(pValues->Value);                     break;
-		case 35: CurBot->TotalAA = atol(pValues->Value);        break;
-		case 36: CurBot->UsedAA = atol(pValues->Value);        break;
-		case 37: CurBot->UnusedAA = atol(pValues->Value);        break;
-		case 38: CurBot->CombatState = atol(pValues->Value);      break;
-		case 39: strcpy_s(CurBot->Note, pValues->Value);	      break;
-		case 40: InfoDetr(pValues->Value);                      break;
-		case 89: strcpy_s(CurBot->Location, pValues->Value);     break;
-		case 90: strcpy_s(CurBot->Heading, pValues->Value);      break;
+			case 35:
+				CurBot->TotalAA = tmpInt;
+				break;
+			case 36:
+				CurBot->UsedAA = tmpInt;
+				break;
+			case 37:
+				CurBot->UnusedAA = tmpInt;
+				break;
+			case 38:
+				CurBot->CombatState = tmpInt;
+				break;
+			case 39:
+				strcpy_s(CurBot->Note, pValues->Value.c_str());
+				break;
+			case 40:
+				InfoDetr(pValues->Value.c_str());
+				break;
+			case 89:
+				strcpy_s(CurBot->Location, pValues->Value.c_str());
+				break;
+			case 90:
+				strcpy_s(CurBot->Heading, pValues->Value.c_str());
+				break;
+			default:
+				break;
 		}
 		pValues = pValues->pNext;
 	}
@@ -569,7 +627,7 @@ PSTR MakeDURAS(CHAR(&Buffer)[_Size]) {
 template <unsigned int _Size>PSTR MakeBUFFS(CHAR(&Buffer)[_Size]) {
 	long SpellID; char tmp[MAX_STRING] = { 0 }; Buffer[0] = '\0';
 	for (int b = 0; b < BUFF_MAX; b++)
-		if ((SpellID = GetCharInfo2()->Buff[b].SpellID) > 0) {
+		if ((SpellID = GetPcProfile()->Buff[b].SpellID) > 0) {
 			sprintf_s(tmp, "%d:", SpellID);
 			strcat_s(Buffer, tmp);
 		}
@@ -605,7 +663,7 @@ template <unsigned int _Size>PSTR MakeLOCAT(CHAR(&Buffer)[_Size]) {
 }
 
 template <unsigned int _Size>PSTR MakeENDUS(CHAR(&Buffer)[_Size]) {
-	if (long EnduMax = GetMaxEndurance()) sprintf_s(Buffer, "%d/%d", GetCharInfo2()->Endurance, EnduMax);
+	if (long EnduMax = GetMaxEndurance()) sprintf_s(Buffer, "%d/%d", GetPcProfile()->Endurance, EnduMax);
 	else strcpy_s(Buffer, "/");
 	return Buffer;
 }
@@ -623,8 +681,8 @@ template <unsigned int _Size>PSTR MakeEXPER(CHAR(&Buffer)[_Size]) {
 
 template <unsigned int _Size>PSTR MakeLEADR(CHAR(&Buffer)[_Size]) {
 	if (PCHARINFO pChar = GetCharInfo()) {
-		if (pChar->pGroupInfo && pChar->pGroupInfo->pLeader && pChar->pGroupInfo->pLeader->pName) {
-			GetCXStr(pChar->pGroupInfo->pLeader->pName, Buffer, MAX_STRING);
+		if (pChar->pGroupInfo && pChar->pGroupInfo->pLeader && !pChar->pGroupInfo->pLeader->Name.empty()) {
+			strcpy_s(Buffer, pChar->pGroupInfo->pLeader->Name.c_str());
 		}
 		else {
 			Buffer[0] = 0;
@@ -643,7 +701,7 @@ template <unsigned int _Size>PSTR MakeNOTE(CHAR(&Buffer)[_Size]) {
 }
 
 template <unsigned int _Size>PSTR MakeLEVEL(CHAR(&Buffer)[_Size]) {
-	sprintf_s(Buffer, "%d:%d", GetCharInfo2()->Level, GetCharInfo2()->Class);
+	sprintf_s(Buffer, "%d:%d", GetPcProfile()->Level, GetPcProfile()->Class);
 	return Buffer;
 }
 
@@ -653,19 +711,23 @@ template <unsigned int _Size>PSTR MakeLIFES(CHAR(&Buffer)[_Size]) {
 }
 
 template <unsigned int _Size>PSTR MakeMANAS(CHAR(&Buffer)[_Size]) {
-	if (long ManaMax = GetMaxMana()) sprintf_s(Buffer, "%d/%d", GetCharInfo2()->Mana, ManaMax);
+	if (long ManaMax = GetMaxMana()) sprintf_s(Buffer, "%d/%d", GetPcProfile()->Mana, ManaMax);
 	else strcpy_s(Buffer, "/");
 	return Buffer;
 }
 
 template <unsigned int _Size>PSTR MakePBUFF(CHAR(&Buffer)[_Size]) {
-	long SpellID; char tmp[MAX_STRING]; Buffer[0] = 0;
 	PSPAWNINFO Pet = (PSPAWNINFO)GetSpawnByID(GetCharInfo()->pSpawn->PetID);
-	for (int b = 0; b < PETS_MAX; b++)
-		if ((SpellID = (Pet && pPetInfoWnd) ? ((PEQPETINFOWINDOW)pPetInfoWnd)->Buff[b] : 0) > 0) {
-			sprintf_s(tmp, "%d:", SpellID);
-			strcat_s(Buffer, tmp);
+	if (Pet && pPetInfoWnd)
+	{
+		for (int b = 0; b < PETS_MAX; b++)
+		{
+			int SpellID = pPetInfoWnd->Buff[b];
+			if (SpellID > 0) {
+				sprintf_s(Buffer, "%d:", SpellID);
+			}
 		}
+	}
 	//  WriteChatf("MakePBUFF: [%s]", Buffer);
 	return Buffer;
 }
@@ -697,7 +759,7 @@ PSTR MakeSPGEM(CHAR(&Buffer)[_Size]) {
 template <unsigned int _Size>PSTR MakeSONGS(CHAR(&Buffer)[_Size]) {
 	long SpellID = 0; char tmp[MAX_STRING] = { 0 }; Buffer[0] = '\0';
 	for (int b = 0; b < SONG_MAX; b++)
-		if ((SpellID = GetCharInfo2()->ShortBuff[b].SpellID) > 0) {
+		if ((SpellID = GetPcProfile()->ShortBuff[b].SpellID) > 0) {
 			sprintf_s(tmp, "%d:", SpellID);
 			strcat_s(Buffer, tmp);
 		}
@@ -727,12 +789,12 @@ template <unsigned int _Size>PSTR MakeSTATE(CHAR(&Buffer)[_Size]) {
 }
 
 template <unsigned int _Size>PSTR MakeOOCST(CHAR(&Buffer)[_Size]) {
-	_itoa_s(((PCPLAYERWND)pPlayerWnd)->CombatState, Buffer, 10);
+	_itoa_s(pPlayerWnd->CombatState, Buffer, 10);
 	return Buffer;
 }
 
 template <unsigned int _Size>PSTR MakeAAPTS(CHAR(&Buffer)[_Size]) {
-	sprintf_s(Buffer, "%d:%d:%d", GetCharInfo2()->AAPoints + GetCharInfo2()->AAPointsSpent, GetCharInfo2()->AAPointsSpent, GetCharInfo2()->AAPoints);
+	sprintf_s(Buffer, "%d:%d:%d", GetPcProfile()->AAPoints + GetPcProfile()->AAPointsSpent, GetPcProfile()->AAPointsSpent, GetPcProfile()->AAPoints);
 	return Buffer;
 }
 
@@ -760,7 +822,7 @@ template <unsigned int _Size>PSTR MakeDETR(CHAR(&Buffer)[_Size]) {
 	char tmp[MAX_STRING]; Buffer[0] = 0;
 	ZeroMemory(&dValues, sizeof(dValues));
 	for (int b = 0; b < BUFF_MAX; b++) {
-		if (PSPELL spell = GetSpellByID(GetCharInfo2()->Buff[b].SpellID)) {
+		if (PSPELL spell = GetSpellByID(GetPcProfile()->Buff[b].SpellID)) {
 			if (!spell->SpellType) {
 				bool d = false;
 				bool r = false;
@@ -800,8 +862,7 @@ template <unsigned int _Size>PSTR MakeDETR(CHAR(&Buffer)[_Size]) {
 						break;
 					default:
 						/*CastByMe,CastByOther,CastOnYou,CastOnAnother,WearOff*/
-						char*Wearoff = GetSpellString(spell->ID, 4);
-						if ((spell->NoDisspell && !Wearoff) || spell->TargetType == 6) dValues[NOCURE]++;
+						if ((spell->NoDisspell && GetSpellString(spell->ID, 4) != nullptr) || spell->TargetType == 6) dValues[NOCURE]++;
 						break;
 					}
 				}
@@ -883,7 +944,7 @@ class MQ2NetBotsType *pNetBotsType = 0;
 class MQ2NetBotsType : public MQ2Type {
 
 private:
-	map<string, BotInfo>::iterator l;
+	std::map<std::string, BotInfo>::iterator l;
 	BotInfo *BotRec = 0;
 	char Temps[MAX_STRING];
 	char Works[MAX_STRING];
@@ -1080,26 +1141,26 @@ public:
 		TypeMember(Heading);
 	}
 
-	void Search(PCHAR Index) {
+	void Search(const char* Index) {
 		if (!Index || Index && Index[0] == '\0')
 			BotRec = 0;
 		else if (!BotRec || (BotRec && _stricmp(BotRec->Name, Index)))
 			BotRec = BotFind(Index);
 	}
 
-	bool GetMember(MQ2VARPTR VarPtr, PCHAR Member, PCHAR Index, MQ2TYPEVAR &Dest) {
-		if (PMQ2TYPEMEMBER pMember = MQ2NetBotsType::FindMember(Member)) {
+	virtual bool GetMember(MQVarPtr VarPtr, const char* Member, char* Index, MQTypeVar& Dest) override {
+		if (auto pMember = MQ2NetBotsType::FindMember(Member)) {
 			switch ((Information)pMember->ID) {
 			case Enable:
-				Dest.Type = pBoolType;
+				Dest.Type = mq::datatypes::pBoolType;
 				Dest.DWord = NetStat;
 				return true;
 			case Listen:
-				Dest.Type = pBoolType;
+				Dest.Type = mq::datatypes::pBoolType;
 				Dest.DWord = NetGrab;
 				return true;
 			case Output:
-				Dest.Type = pBoolType;
+				Dest.Type = mq::datatypes::pBoolType;
 				Dest.DWord = NetSend;
 				return true;
 			case Counts:
@@ -1110,7 +1171,7 @@ public:
 						if (BotRec->SpawnID == 0) continue;
 						Cpt++;
 					}
-				Dest.Type = pIntType;
+				Dest.Type = mq::datatypes::pIntType;
 				Dest.Int = Cpt;
 				return true;
 			case Client:
@@ -1128,43 +1189,43 @@ public:
 					strcpy_s(Temps, GetArg(Works, Temps, n));
 				}
 
-				Dest.Type = pStringType;
+				Dest.Type = mq::datatypes::pStringType;
 				Dest.Ptr = Temps;
 				return true;
 			}
 			if (BotRec) {
 				switch ((Information)pMember->ID) {
 				case Name:
-					Dest.Type = pStringType;
+					Dest.Type = mq::datatypes::pStringType;
 					Dest.Ptr = Temps;
 					strcpy_s(Temps, BotRec->Name);
 					return true;
 				case Zone:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.DWord = BotRec->ZoneID;
 					return true;
 				case Instance:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.DWord = BotRec->InstID;
 					return true;
 				case ID:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.DWord = BotRec->SpawnID;
 					return true;
 				case Class:
-					Dest.Type = pClassType;
+					Dest.Type = mq::datatypes::pClassType;
 					Dest.DWord = BotRec->ClassID;
 					return true;
 				case Level:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.DWord = BotRec->Level;
 					return true;
 				case PctExp:
-					Dest.Type = pFloatType;
+					Dest.Type = mq::datatypes::pFloatType;
 					Dest.Float = (float)(BotRec->XP / 3.30f);
 					return true;
 				case PctAAExp:
-					Dest.Type = pFloatType;
+					Dest.Type = mq::datatypes::pFloatType;
 					Dest.Float = (float)(BotRec->aaXP / 3.30f);
 					return true;
 #if defined(ROF2EMU) || defined(UFEMU)
@@ -1174,66 +1235,66 @@ public:
 					return true;
 #endif
 				case CurrentHPs:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->LifeCur;
 					return true;
 				case MaxHPs:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->LifeMax;
 					return true;
 				case PctHPs:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = (BotRec->LifeMax < 1 || BotRec->LifeCur < 1) ? 0 : BotRec->LifeCur * 100 / BotRec->LifeMax;
 					return true;
 				case CurrentEndurance:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->EnduCur;
 					return true;
 				case MaxEndurance:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->EnduMax;
 					return true;
 				case PctEndurance:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = (BotRec->EnduMax < 1 || BotRec->EnduCur < 1) ? 0 : BotRec->EnduCur * 100 / BotRec->EnduMax;
 					return true;
 				case CurrentMana:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->ManaCur;
 					return true;
 				case MaxMana:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->ManaMax;
 					return true;
 				case PctMana:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = (BotRec->ManaMax < 1 || BotRec->ManaCur < 1) ? 0 : BotRec->ManaCur * 100 / BotRec->ManaMax;
 					return true;
 				case PetID:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.DWord = BotRec->PetID;
 					return true;
 				case PetHP:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->PetHP;
 					return true;
 				case TargetID:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.DWord = BotRec->TargetID;
 					return true;
 				case TargetHP:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->TargetHP;
 					return true;
 				case Casting:
 					if (BotRec->CastID) {
-						Dest.Type = pSpellType;
+						Dest.Type = mq::datatypes::pSpellType;
 						Dest.Ptr = GetSpellByID(BotRec->CastID);
 						return true;
 					}
 					break;
 				case State:
-					Dest.Type = pStringType;
+					Dest.Type = mq::datatypes::pStringType;
 					Dest.Ptr = Temps;
 					if (BotRec->State & STATE_STUN)       strcpy_s(Temps, "STUN");
 					else if (BotRec->State & STATE_STAND) strcpy_s(Temps, "STAND");
@@ -1245,99 +1306,99 @@ public:
 					else strcpy_s(Temps, "UNKNOWN");
 					return true;
 				case Attacking:
-					Dest.Type = pBoolType;
+					Dest.Type = mq::datatypes::pBoolType;
 					Dest.DWord = BotRec->State & STATE_ATTACK;
 					return true;
 				case AFK:
-					Dest.Type = pBoolType;
+					Dest.Type = mq::datatypes::pBoolType;
 					Dest.DWord = BotRec->State & STATE_AFK;
 					return true;
 				case Binding:
-					Dest.Type = pBoolType;
+					Dest.Type = mq::datatypes::pBoolType;
 					Dest.DWord = BotRec->State & STATE_BIND;
 					return true;
 				case Ducking:
-					Dest.Type = pBoolType;
+					Dest.Type = mq::datatypes::pBoolType;
 					Dest.DWord = BotRec->State & STATE_DUCK;
 					return true;
 				case Feigning:
-					Dest.Type = pBoolType;
+					Dest.Type = mq::datatypes::pBoolType;
 					Dest.DWord = BotRec->State & STATE_FEIGN;
 					return true;
 				case Grouped:
-					Dest.Type = pBoolType;
+					Dest.Type = mq::datatypes::pBoolType;
 					Dest.DWord = BotRec->State & STATE_GROUP;
 					return true;
 				case Invis:
-					Dest.Type = pBoolType;
+					Dest.Type = mq::datatypes::pBoolType;
 					Dest.DWord = BotRec->State & STATE_INVIS;
 					return true;
 				case Levitating:
-					Dest.Type = pBoolType;
+					Dest.Type = mq::datatypes::pBoolType;
 					Dest.DWord = BotRec->State & STATE_LEV;
 					return true;
 				case LFG:
-					Dest.Type = pBoolType;
+					Dest.Type = mq::datatypes::pBoolType;
 					Dest.DWord = BotRec->State & STATE_LFG;
 					return true;
 				case Mounted:
-					Dest.Type = pBoolType;
+					Dest.Type = mq::datatypes::pBoolType;
 					Dest.DWord = BotRec->State & STATE_MOUNT;
 					return true;
 				case Moving:
-					Dest.Type = pBoolType;
+					Dest.Type = mq::datatypes::pBoolType;
 					Dest.DWord = BotRec->State & STATE_MOVING;
 					return true;
 				case Raid:
-					Dest.Type = pBoolType;
+					Dest.Type = mq::datatypes::pBoolType;
 					Dest.DWord = BotRec->State & STATE_RAID;
 					return true;
 				case Sitting:
-					Dest.Type = pBoolType;
+					Dest.Type = mq::datatypes::pBoolType;
 					Dest.DWord = BotRec->State & STATE_SIT;
 					return true;
 				case Standing:
-					Dest.Type = pBoolType;
+					Dest.Type = mq::datatypes::pBoolType;
 					Dest.DWord = BotRec->State & STATE_STAND;
 					return true;
 				case Stunned:
-					Dest.Type = pBoolType;
+					Dest.Type = mq::datatypes::pBoolType;
 					Dest.DWord = BotRec->State & STATE_STUN;
 					return true;
 				case FreeBuffSlots:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->FreeBuff;
 					return true;
 				case InZone:
-					Dest.Type = pBoolType;
+					Dest.Type = mq::datatypes::pBoolType;
 					Dest.DWord = (inZoned(BotRec->ZoneID, BotRec->InstID));
 					return true;
 				case InGroup:
-					Dest.Type = pBoolType;
+					Dest.Type = mq::datatypes::pBoolType;
 					Dest.DWord = (inZoned(BotRec->ZoneID, BotRec->InstID) && inGroup(BotRec->SpawnID));
 					return true;
 				case Leader:
-					Dest.Type = pStringType;
+					Dest.Type = mq::datatypes::pStringType;
 					Dest.Ptr = Temps;
 					strcpy_s(Temps, BotRec->Leader);
 					return true;
 				case Note:
-					Dest.Type = pStringType;
+					Dest.Type = mq::datatypes::pStringType;
 					Dest.Ptr = Temps;
 					strcpy_s(Temps, BotRec->Note);
 					return true;
 				case Location:
-					Dest.Type = pStringType;
+					Dest.Type = mq::datatypes::pStringType;
 					Dest.Ptr = Temps;
 					strcpy_s(Temps, BotRec->Location);
 					return true;
 				case Heading:
-					Dest.Type = pStringType;
+					Dest.Type = mq::datatypes::pStringType;
 					Dest.Ptr = Temps;
 					strcpy_s(Temps, BotRec->Heading);
 					return true;
 				case Updated:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = clock() - BotRec->Updated;
 					return true;
 					/*
@@ -1368,13 +1429,13 @@ public:
 							strcat_s(Temps, Works);
 						}
 						Dest.Ptr = Temps;
-						Dest.Type = pStringType;
+						Dest.Type = mq::datatypes::pStringType;
 						return true;
 					}
 					Cpt = atoi(Index);
 					if (Cpt<BUFF_MAX && Cpt>-1)
 						if (Dest.Ptr = GetSpellByID(BotRec->Buff[Cpt])) {
-							Dest.Type = pSpellType;
+							Dest.Type = mq::datatypes::pSpellType;
 							return true;
 						}
 					break;
@@ -1407,13 +1468,13 @@ public:
 							strcat_s(Temps, Works);
 						}
 						Dest.Ptr = Temps;
-						Dest.Type = pStringType;
+						Dest.Type = mq::datatypes::pStringType;
 						return true;
 					}
 					Cpt = atoi(Index);
 					if (Cpt<SONG_MAX && Cpt>-1)
 						if (Dest.Ptr = GetSpellByID(BotRec->Song[Cpt])) {
-							Dest.Type = pSpellType;
+							Dest.Type = mq::datatypes::pSpellType;
 							return true;
 						}
 					break;
@@ -1425,35 +1486,35 @@ public:
 							strcat_s(Temps, Works);
 						}
 						Dest.Ptr = Temps;
-						Dest.Type = pStringType;
+						Dest.Type = mq::datatypes::pStringType;
 						return true;
 					}
 					Cpt = atoi(Index);
 					if (Cpt<PETS_MAX && Cpt>-1)
 						if (Dest.Ptr = GetSpellByID(BotRec->Pets[Cpt])) {
-							Dest.Type = pSpellType;
+							Dest.Type = mq::datatypes::pSpellType;
 							return true;
 						}
 					break;
 				case TotalAA:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.DWord = BotRec->TotalAA;
 					return true;
 				case UsedAA:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.DWord = BotRec->UsedAA;
 					return true;
 				case UnusedAA:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.DWord = BotRec->UnusedAA;
 					return true;
 				case CombatState:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.DWord = BotRec->CombatState;
 					return true;
 				case Stacks:
 				{
-					Dest.Type = pBoolType;
+					Dest.Type = mq::datatypes::pBoolType;
 					Dest.DWord = false;
 					if (!ISINDEX())
 						return true;
@@ -1493,7 +1554,7 @@ public:
 				}
 				case StacksPet:
 				{
-					Dest.Type = pBoolType;
+					Dest.Type = mq::datatypes::pBoolType;
 					Dest.DWord = false;
 					if (!ISINDEX())
 						return true;
@@ -1519,103 +1580,103 @@ public:
 					return true;
 				}
 				case Detrimentals:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[DETRIMENTALS];
 					return true;
 				case Counters:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[COUNTERS];
 					return true;
 				case Cursed:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[CURSED];
 					return true;
 				case Diseased:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[DISEASED];
 					return true;
 				case Poisoned:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[POISONED];
 					return true;
 				case Corrupted:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[CORRUPTED];
 					return true;
 				case EnduDrain:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[ENDUDRAIN];
 					return true;
 				case LifeDrain:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[LIFEDRAIN];
 					return true;
 				case ManaDrain:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[MANADRAIN];
 					return true;
 				case Blinded:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[BLINDED];
 					return true;
 				case CastingLevel:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[CASTINGLEVEL];
 					return true;
 				case Charmed:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[CHARMED];
 					return true;
 				case Feared:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[FEARED];
 					return true;
 				case Healing:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[HEALING];
 					return true;
 				case Invulnerable:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[INVULNERABLE];
 					return true;
 				case Mesmerized:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[MESMERIZED];
 					return true;
 				case Rooted:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[ROOTED];
 					return true;
 				case Silenced:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[SILENCED];
 					return true;
 				case Slowed:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[SLOWED];
 					return true;
 				case Snared:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[SNARED];
 					return true;
 				case SpellCost:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[SPELLCOST];
 					return true;
 				case SpellSlowed:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[SPELLSLOWED];
 					return true;
 				case SpellDamage:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[SPELLDAMAGE];
 					return true;
 				case Trigger:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[TRIGGR];
 					return true;
 				case Resistance:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[RESISTANCE];
 					return true;
 				case Detrimental:
@@ -1644,11 +1705,11 @@ public:
 					if (BotRec->Detrimental[CORRUPTED])    strcat_s(Temps, "Corrupted ");
 					if (BotRec->Detrimental[RESISTANCE])   strcat_s(Temps, "Resistance ");
 					if (long len = strlen(Temps)) Temps[--len] = 0;
-					Dest.Type = pStringType;
+					Dest.Type = mq::datatypes::pStringType;
 					Dest.Ptr = Temps;
 					return true;
 				case NoCure:
-					Dest.Type = pIntType;
+					Dest.Type = mq::datatypes::pIntType;
 					Dest.Int = BotRec->Detrimental[NOCURE];
 					return true;
 
@@ -1656,22 +1717,14 @@ public:
 			}
 		}
 		strcpy_s(Temps, "NULL");
-		Dest.Type = pStringType;
+		Dest.Type = mq::datatypes::pStringType;
 		Dest.Ptr = Temps;
 		return true;
 	}
 
-	bool ToString(MQ2VARPTR VarPtr, PCHAR Destination) {
+	bool ToString(MQVarPtr VarPtr, PCHAR Destination) {
 		strcpy_s(Destination, MAX_STRING, "TRUE");
 		return true;
-	}
-
-	bool FromData(MQ2VARPTR &VarPtr, MQ2TYPEVAR &Source) {
-		return false;
-	}
-
-	bool FromString(MQ2VARPTR &VarPtr, PCHAR Source) {
-		return false;
 	}
 
 	~MQ2NetBotsType() {
@@ -1679,7 +1732,7 @@ public:
 	}
 };
 
-BOOL dataNetBots(PCHAR Index, MQ2TYPEVAR &Dest) {
+bool dataNetBots(const char* Index, MQTypeVar &Dest) {
 	Dest.DWord = 1;
 	Dest.Type = pNetBotsType;
 	pNetBotsType->Search(Index);
@@ -1758,7 +1811,7 @@ PLUGIN_API VOID OnNetBotMSG(PCHAR Name, PCHAR Msg) {
 PLUGIN_API VOID OnPulse(VOID) {
 	if (NetStat && NetSend && gbInZone && (long)clock() > NetLast) {
 		NetLast = (long)clock() + NETTICK;
-		if (EQBCConnected() && GetCharInfo() && GetCharInfo()->pSpawn && GetCharInfo2()) BroadCast();
+		if (EQBCConnected() && GetCharInfo() && GetCharInfo()->pSpawn && GetPcProfile()) BroadCast();
 	}
 }
 
@@ -1771,7 +1824,7 @@ PLUGIN_API VOID SetGameState(DWORD GameState) {
 #if    DEBUGGING>0
 			DebugSpewAlways("%s->SetGameState(%d)->Loading", PLUGIN_NAME, GameState);
 #endif DEBUGGING
-			sprintf_s(INIFileName, "%s\\%s_%s.ini", gszINIPath, EQADDR_SERVERNAME, GetCharInfo()->Name);
+			sprintf_s(INIFileName, "%s\\%s_%s.ini", gPathConfig, EQADDR_SERVERNAME, GetCharInfo()->Name);
 			NetStat = GetPrivateProfileInt(PLUGIN_NAME, "Stat", 0, INIFileName);
 			NetGrab = GetPrivateProfileInt(PLUGIN_NAME, "Grab", 0, INIFileName);
 			NetSend = GetPrivateProfileInt(PLUGIN_NAME, "Send", 0, INIFileName);
