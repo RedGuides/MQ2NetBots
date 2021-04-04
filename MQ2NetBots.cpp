@@ -3,24 +3,24 @@
 // Projet: MQ2NetBots.cpp
 // Author: s0rCieR
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
-// 
-// Deadchicken added .Duration on or about September 2007 and tried not to 
-// mangle s0rCieR's code to much.  Thanks to Kroak for helping debug. 
+//
+// Deadchicken added .Duration on or about September 2007 and tried not to
+// mangle s0rCieR's code to much.  Thanks to Kroak for helping debug.
 //  Updated for 10/9 release of MQ2
 // CombatState member added  Thanks mijuki.
 // .Stacks member added
-// 
-// v2.1 woobs 
+//
+// v2.1 woobs
 //    - Upped most of the maximum values to handle more buffs.
-//    - Add Detrimental information to merge in MQ2Debuffs functions 
+//    - Add Detrimental information to merge in MQ2Debuffs functions
 // v2.2 eqmule
 //    - Added String Safety
-// v3.0 woobs 
+// v3.0 woobs
 //    - Updated .Stacks
 //    - Added   .StacksPet
-// v3.1 woobs 
+// v3.1 woobs
 //    - Updated for Spell Blocker (148) fix from swifty.
-// v3.2 woobs 
+// v3.2 woobs
 //    - Added NBGetEffectAmt to get adjusted values for compare.
 //    - Removed 85/419 from triggering formula. These Procs stack/don't stack based on
 //      the normal base check (for these, it is SpellID). It seems newer spells simply
@@ -109,7 +109,7 @@ public:
 	long              Pets[PETS_MAX];      // Spell Pets
 	long              Song[SONG_MAX];      // Spell Song
 	long              Buff[BUFF_MAX];      // Spell Buff
-  //  long              Duration[BUFF_MAX];  // Buff duration 
+  //  long              Duration[BUFF_MAX];  // Buff duration
 	long              FreeBuff;            // FreeBuffSlot;
 #if defined(ROF2EMU) || defined(UFEMU)
 	double            glXP;                // glXP
@@ -119,9 +119,9 @@ public:
 	DWORD             Updated;             // Update
 	CHAR              Location[0x40];      // Y,X,Z
 	CHAR		    Heading[0x40];       // Heading
-	long              TotalAA;             // totalAA 
-	long              UsedAA;              // usedAA 
-	long              UnusedAA;            // unusedAA 
+	long              TotalAA;             // totalAA
+	long              UsedAA;              // usedAA
+	long              UnusedAA;            // unusedAA
 	DWORD             CombatState;         // CombatState
 	CHAR              Note[NOTE_MAX];      // User Mesg
 	int               Detrimental[DSIZE];
@@ -311,7 +311,7 @@ BOOL NBSpellEffectTest(PSPELL aSpell, PSPELL bSpell, int i, BOOL bIgnoreTriggeri
 	LONG aAttrib = GetSpellNumEffects(aSpell) > i ? GetSpellAttrib(aSpell, i) : 254;
 	LONG bAttrib = GetSpellNumEffects(bSpell) > i ? GetSpellAttrib(bSpell, i) : 254;
 	return ((aAttrib == 57 || bAttrib == 57)		// Levitate
-		|| (aAttrib == 79 || bAttrib == 79)		// +HP when cast (priest buffs that have heal component, DoTs with DDs) 
+		|| (aAttrib == 79 || bAttrib == 79)		// +HP when cast (priest buffs that have heal component, DoTs with DDs)
 		|| (aAttrib == 134 || bAttrib == 134)		// Limit: Max Level
 		|| (aAttrib == 135 || bAttrib == 135)		// Limit: Resist
 		|| (aAttrib == 136 || bAttrib == 136)		// Limit: Target
