@@ -717,14 +717,18 @@ template <unsigned int _Size>PSTR MakeMANAS(CHAR(&Buffer)[_Size]) {
 }
 
 template <unsigned int _Size>PSTR MakePBUFF(CHAR(&Buffer)[_Size]) {
-	PSPAWNINFO Pet = (PSPAWNINFO)GetSpawnByID(GetCharInfo()->pSpawn->PetID);
+	Buffer[0] = '\0';
+	PlayerClient* Pet = GetSpawnByID(GetCharInfo()->pSpawn->PetID);
 	if (Pet && pPetInfoWnd)
 	{
+		// SpellID is an int, so the longest is probably 11.
+		char tmp[20] = { 0 };
 		for (int b = 0; b < PETS_MAX; b++)
 		{
 			int SpellID = pPetInfoWnd->Buff[b];
 			if (SpellID > 0) {
-				sprintf_s(Buffer, "%d:", SpellID);
+				sprintf_s(tmp, "%d:", SpellID);
+				strcat_s(Buffer, tmp);
 			}
 		}
 	}
