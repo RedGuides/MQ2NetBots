@@ -1147,7 +1147,7 @@ public:
 
 	void Search(const char* Index) {
 		if (!Index || Index && Index[0] == '\0')
-			BotRec = 0;
+			BotRec = nullptr;
 		else if (!BotRec || (BotRec && _stricmp(BotRec->Name, Index)))
 			BotRec = BotFind(Index);
 	}
