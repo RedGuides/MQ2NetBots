@@ -866,7 +866,7 @@ template <unsigned int _Size>PSTR MakeDETR(CHAR(&Buffer)[_Size]) {
 						break;
 					default:
 						/*CastByMe,CastByOther,CastOnYou,CastOnAnother,WearOff*/
-						if ((spell->NoDisspell && GetSpellString(spell->ID, 4) != nullptr) || spell->TargetType == 6) dValues[NOCURE]++;
+						if ((spell->IsNoDispell() && GetSpellString(spell->ID, 4) != nullptr) || spell->TargetType == 6) dValues[NOCURE]++;
 						break;
 					}
 				}
