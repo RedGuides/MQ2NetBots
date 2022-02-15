@@ -1708,7 +1708,7 @@ public:
 					if (BotRec->Detrimental[TRIGGR])       strcat_s(Temps, "Trigger ");
 					if (BotRec->Detrimental[CORRUPTED])    strcat_s(Temps, "Corrupted ");
 					if (BotRec->Detrimental[RESISTANCE])   strcat_s(Temps, "Resistance ");
-					if (long len = strlen(Temps)) Temps[--len] = 0;
+					if (size_t len = strlen(Temps)) Temps[--len] = 0;
 					Dest.Type = mq::datatypes::pStringType;
 					Dest.Ptr = Temps;
 					return true;
