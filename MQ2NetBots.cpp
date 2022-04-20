@@ -202,12 +202,12 @@ bool inZoned(unsigned long zID, unsigned long iID) {
 	return (GetCharInfo() && GetCharInfo()->zoneId == zID && GetCharInfo()->instance == iID);
 }
 
-LONG NBGetEffectAmt(PSPELL pSpell, int i)
+int64_t NBGetEffectAmt(PSPELL pSpell, int i)
 {
-	LONG spa = GetSpellAttrib(pSpell, i);
-	LONG base = GetSpellBase(pSpell, i);
-	LONG max = GetSpellMax(pSpell, i);
-	LONG calc = GetSpellCalc(pSpell, i);
+	int spa = GetSpellAttrib(pSpell, i);
+	int64_t base = GetSpellBase(pSpell, i);
+	int64_t max = GetSpellMax(pSpell, i);
+	int calc = GetSpellCalc(pSpell, i);
 
 	if (spa == SPA_NOSPELL)
 		return 0;
@@ -238,7 +238,7 @@ LONG NBGetEffectAmt(PSPELL pSpell, int i)
 		break;
 	}
 
-	LONG value = CalcValue(calc, (spa == SPA_STACKING_BLOCK) ? max : base, max, 1);
+	int64_t value = CalcValue(calc, (spa == SPA_STACKING_BLOCK) ? max : base, max, 1);
 	return value;
 }
 
@@ -351,14 +351,14 @@ BOOL NBBuffStackTest(PSPELL aSpell, PSPELL bSpell, BOOL bIgnoreTriggeringEffects
 
 	// We need to loop over the largest of the two, this may seem silly but one could have stacking command blocks
 	// which we will always need to check.
-	LONG effects = std::max(GetSpellNumEffects(aSpell), GetSpellNumEffects(bSpell));
+	int effects = std::max(GetSpellNumEffects(aSpell), GetSpellNumEffects(bSpell));
 	for (int i = 0; i < effects; i++) {
 		// Compare 1st Buff to 2nd. If Attrib[i]==254 its a place holder. If it is 10 it
 		// can be 1 of 3 things: PH(Base=0), CHA(Base>0), Lure(Base=-6). If it is Lure or
 		// Placeholder, exclude it so slots don't match up. Now Check to see if the slots
 		// have equal attribute values to check for stacking.
-		LONG aAttrib = 254, bAttrib = 254; // Default to placeholder ...
-		LONG aBase = 0, bBase = 0, aBase2 = 0, bBase2 = 0;
+		int aAttrib = 254, bAttrib = 254; // Default to placeholder ...
+		int64_t aBase = 0, bBase = 0, aBase2 = 0, bBase2 = 0;
 		if (GetSpellNumEffects(aSpell) > i) {
 			aAttrib = GetSpellAttrib(aSpell, i);
 			aBase = GetSpellBase(aSpell, i);
@@ -390,11 +390,11 @@ BOOL NBBuffStackTest(PSPELL aSpell, PSPELL bSpell, BOOL bIgnoreTriggeringEffects
 		// 149: Stacking: Overwrite existing spell if slot %d is effect
 		if (bAttrib == 148 || bAttrib == 149) {
 			// in this branch we know bSpell has enough slots
-			int tmpSlot = (bAttrib == 148 ? bBase2 - 1 : GetSpellCalc(bSpell, i) - 200 - 1);
-			int tmpAttrib = bBase;
+			int tmpSlot = (int)(bAttrib == 148 ? bBase2 - 1 : GetSpellCalc(bSpell, i) - 200 - 1);
+			int64_t tmpAttrib = bBase;
 			if (GetSpellNumEffects(aSpell) > tmpSlot) { // verify aSpell has that slot
 				if (GetSpellMax(bSpell, i) > 0) {
-					int tmpVal = abs(GetSpellMax(bSpell, i));
+					int64_t tmpVal = abs(GetSpellMax(bSpell, i));
 					if (GetSpellAttrib(aSpell, tmpSlot) == tmpAttrib && GetSpellBase(aSpell, tmpSlot) < tmpVal) {
 						return false;
 					}
@@ -624,10 +624,11 @@ PSTR MakeDURAS(CHAR(&Buffer)[_Size]) {
 }
 */
 
-template <unsigned int _Size>PSTR MakeBUFFS(CHAR(&Buffer)[_Size]) {
+template <unsigned int _Size>
+PSTR MakeBUFFS(CHAR(&Buffer)[_Size]) {
 	long SpellID; char tmp[MAX_STRING] = { 0 }; Buffer[0] = '\0';
 	for (int b = 0; b < BUFF_MAX; b++)
-		if ((SpellID = GetPcProfile()->Buff[b].SpellID) > 0) {
+		if ((SpellID = GetPcProfile()->GetEffect(b).SpellID) > 0) {
 			sprintf_s(tmp, "%d:", SpellID);
 			strcat_s(Buffer, tmp);
 		}
@@ -763,7 +764,7 @@ PSTR MakeSPGEM(CHAR(&Buffer)[_Size]) {
 template <unsigned int _Size>PSTR MakeSONGS(CHAR(&Buffer)[_Size]) {
 	long SpellID = 0; char tmp[MAX_STRING] = { 0 }; Buffer[0] = '\0';
 	for (int b = 0; b < SONG_MAX; b++)
-		if ((SpellID = GetPcProfile()->ShortBuff[b].SpellID) > 0) {
+		if ((SpellID = GetPcProfile()->GetTempEffect(b).SpellID) > 0) {
 			sprintf_s(tmp, "%d:", SpellID);
 			strcat_s(Buffer, tmp);
 		}
@@ -826,7 +827,7 @@ template <unsigned int _Size>PSTR MakeDETR(CHAR(&Buffer)[_Size]) {
 	char tmp[MAX_STRING]; Buffer[0] = 0;
 	ZeroMemory(&dValues, sizeof(dValues));
 	for (int b = 0; b < BUFF_MAX; b++) {
-		if (PSPELL spell = GetSpellByID(GetPcProfile()->Buff[b].SpellID)) {
+		if (PSPELL spell = GetSpellByID(GetPcProfile()->GetEffect(b).SpellID)) {
 			if (!spell->SpellType) {
 				bool d = false;
 				bool r = false;
