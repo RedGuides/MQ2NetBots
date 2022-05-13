@@ -773,22 +773,22 @@ template <unsigned int _Size>PSTR MakeSONGS(CHAR(&Buffer)[_Size]) {
 
 template <unsigned int _Size>PSTR MakeSTATE(CHAR(&Buffer)[_Size]) {
 	WORD Status = 0;
-	if (*EQADDR_ATTACK)                                       Status |= STATE_ATTACK;
-	if (pRaid && pRaid->RaidMemberCount)                      Status |= STATE_RAID;
-	if (GetCharInfo()->Stunned)                               Status |= STATE_STUN;
-	if (GetCharInfo()->pGroupInfo)                            Status |= STATE_GROUP;
-	if (FindSpeed(GetCharInfo()->pSpawn))                     Status |= STATE_MOVING;
-	if (GetCharInfo()->pSpawn->Mount)                         Status |= STATE_MOUNT;
-	if (GetCharInfo()->pSpawn->AFK)                           Status |= STATE_AFK;
-	if (GetCharInfo()->pSpawn->HideMode)                      Status |= STATE_INVIS;
-	if (GetCharInfo()->pSpawn->mPlayerPhysicsClient.Levitate) Status |= STATE_LEV;
-	if (GetCharInfo()->pSpawn->LFG)                           Status |= STATE_LFG;
-	if (GetCharInfo()->pSpawn->StandState == STANDSTATE_DEAD)   Status |= STATE_DEAD;
-	if (GetCharInfo()->pSpawn->StandState == STANDSTATE_FEIGN)  Status |= STATE_FEIGN;
-	if (GetCharInfo()->pSpawn->StandState == STANDSTATE_DUCK)   Status |= STATE_DUCK;
-	if (GetCharInfo()->pSpawn->StandState == STANDSTATE_BIND)   Status |= STATE_BIND;
-	if (GetCharInfo()->pSpawn->StandState == STANDSTATE_STAND)  Status |= STATE_STAND;
-	if (GetCharInfo()->pSpawn->StandState == STANDSTATE_SIT)    Status |= STATE_SIT;
+	if (pEverQuestInfo->bAutoAttack)                       Status |= STATE_ATTACK;
+	if (pRaid && pRaid->RaidMemberCount)                   Status |= STATE_RAID;
+	if (pLocalPC->Stunned)                                 Status |= STATE_STUN;
+	if (pLocalPC->pGroupInfo)                              Status |= STATE_GROUP;
+	if (FindSpeed(pLocalPC->pSpawn))                       Status |= STATE_MOVING;
+	if (pLocalPC->pSpawn->Mount)                           Status |= STATE_MOUNT;
+	if (pLocalPC->pSpawn->AFK)                             Status |= STATE_AFK;
+	if (pLocalPC->pSpawn->HideMode)                        Status |= STATE_INVIS;
+	if (pLocalPC->pSpawn->mPlayerPhysicsClient.Levitate)   Status |= STATE_LEV;
+	if (pLocalPC->pSpawn->LFG)                             Status |= STATE_LFG;
+	if (pLocalPC->pSpawn->StandState == STANDSTATE_DEAD)   Status |= STATE_DEAD;
+	if (pLocalPC->pSpawn->StandState == STANDSTATE_FEIGN)  Status |= STATE_FEIGN;
+	if (pLocalPC->pSpawn->StandState == STANDSTATE_DUCK)   Status |= STATE_DUCK;
+	if (pLocalPC->pSpawn->StandState == STANDSTATE_BIND)   Status |= STATE_BIND;
+	if (pLocalPC->pSpawn->StandState == STANDSTATE_STAND)  Status |= STATE_STAND;
+	if (pLocalPC->pSpawn->StandState == STANDSTATE_SIT)    Status |= STATE_SIT;
 	_itoa_s(Status, Buffer, 10);
 	return Buffer;
 }
@@ -1829,7 +1829,7 @@ PLUGIN_API VOID SetGameState(DWORD GameState) {
 #if    DEBUGGING>0
 			DebugSpewAlways("%s->SetGameState(%d)->Loading", PLUGIN_NAME, GameState);
 #endif DEBUGGING
-			sprintf_s(INIFileName, "%s\\%s_%s.ini", gPathConfig, EQADDR_SERVERNAME, GetCharInfo()->Name);
+			sprintf_s(INIFileName, "%s\\%s_%s.ini", gPathConfig, GetServerShortName(), pLocalPC->Name);
 			NetStat = GetPrivateProfileInt(PLUGIN_NAME, "Stat", 0, INIFileName);
 			NetGrab = GetPrivateProfileInt(PLUGIN_NAME, "Grab", 0, INIFileName);
 			NetSend = GetPrivateProfileInt(PLUGIN_NAME, "Send", 0, INIFileName);
