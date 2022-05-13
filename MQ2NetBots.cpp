@@ -719,12 +719,12 @@ template <unsigned int _Size>PSTR MakeMANAS(CHAR(&Buffer)[_Size]) {
 
 template <unsigned int _Size>PSTR MakePBUFF(CHAR(&Buffer)[_Size]) {
 	Buffer[0] = '\0';
-	PlayerClient* Pet = GetSpawnByID(GetCharInfo()->pSpawn->PetID);
+	PlayerClient* Pet = GetSpawnByID(pLocalPlayer->PetID);
 	if (Pet && pPetInfoWnd)
 	{
 		// SpellID is an int, so the longest is probably 11.
 		char tmp[20] = { 0 };
-		for (int b = 0; b < PETS_MAX; b++)
+		for (int b = 0; b < pPetInfoWnd->GetMaxBuffs(); b++)
 		{
 			int SpellID = pPetInfoWnd->Buff[b];
 			if (SpellID > 0) {
@@ -763,7 +763,7 @@ PSTR MakeSPGEM(CHAR(&Buffer)[_Size]) {
 
 template <unsigned int _Size>PSTR MakeSONGS(CHAR(&Buffer)[_Size]) {
 	long SpellID = 0; char tmp[MAX_STRING] = { 0 }; Buffer[0] = '\0';
-	for (int b = 0; b < SONG_MAX; b++)
+	for (int b = 0; b < NUM_TEMP_BUFFS; b++)
 		if ((SpellID = GetPcProfile()->GetTempEffect(b).SpellID) > 0) {
 			sprintf_s(tmp, "%d:", SpellID);
 			strcat_s(Buffer, tmp);
