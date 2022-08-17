@@ -739,7 +739,7 @@ template <unsigned int _Size>PSTR MakePETIL(CHAR(&Buffer)[_Size]) {
 	PSPAWNINFO Pet = (PSPAWNINFO)GetSpawnByID(GetCharInfo()->pSpawn->PetID);
 	if (pPetInfoWnd && Pet) {
 		sprintf_s(Buffer, "%d:%d", Pet->SpawnID,
-			static_cast<int32_t>(Pet->HPCurrent * 100 / Pet->HPMax)p);
+			static_cast<int32_t>(Pet->HPCurrent * 100 / Pet->HPMax));
 	} else {
 		strcpy_s(Buffer, ":");
 	}
