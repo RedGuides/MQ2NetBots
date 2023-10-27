@@ -162,11 +162,6 @@ void EQBCBroadCast(PCHAR Buffer) {
 	}
 }
 
-BotInfo* BotFind(const char* Name) {
-	std::map<std::string, BotInfo>::iterator f = NetMap.find(Name);
-	return(NetMap.end() == f) ? NULL : &(*f).second;
-}
-
 BotInfo* BotLoad(PCHAR Name) {
 	std::map<std::string, BotInfo>::iterator f = NetMap.find(Name);
 	if (NetMap.end() == f) {
@@ -1140,8 +1135,6 @@ public:
 	}
 
 	virtual bool GetMember(MQVarPtr VarPtr, const char* Member, char* Index, MQTypeVar& Dest) override {
-		auto botRecP = VarPtr.Get<BotInfo*>();
-		auto botRec = *botRecP.get();
 		if (auto pMember = MQ2NetBotsType::FindMember(Member)) {
 			switch ((Information)pMember->ID) {
 			case Enable:
@@ -1186,7 +1179,7 @@ public:
 				Dest.Ptr = Temps;
 				return true;
 			}
-			if (botRec) {
+			if (auto botRec = VarPtr.Get<BotInfo>()) {
 				switch ((Information)pMember->ID) {
 				case Name:
 					Dest.Type = mq::datatypes::pStringType;
@@ -1726,15 +1719,18 @@ public:
 
 bool dataNetBots(const char* szIndex, MQTypeVar & Ret) {
 		Ret.Type = pNetBotsType;
-
 		if (szIndex && szIndex[0])
 		{
-			auto botinfo = BotFind(szIndex);
-			Ret.Set(botinfo);
-			return true;
+			auto f = NetMap.find(szIndex);
+			if (f != NetMap.end())
+			{
+				Ret.Set(f->second);
+				return true;
+			}
+			return false;
 		}
 
-		return false;
+		return true;
 }
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
