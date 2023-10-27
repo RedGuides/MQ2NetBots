@@ -944,7 +944,6 @@ class MQ2NetBotsType : public MQ2Type {
 
 private:
 	std::map<std::string, BotInfo>::iterator l;
-	BotInfo *BotRec = 0;
 	char Temps[MAX_STRING];
 	char Works[MAX_STRING];
 	long Cpt;
@@ -1140,14 +1139,9 @@ public:
 		TypeMember(Heading);
 	}
 
-	void Search(const char* Index) {
-		if (!Index || Index && Index[0] == '\0')
-			BotRec = nullptr;
-		else if (!BotRec || (BotRec && _stricmp(BotRec->Name, Index)))
-			BotRec = BotFind(Index);
-	}
-
 	virtual bool GetMember(MQVarPtr VarPtr, const char* Member, char* Index, MQTypeVar& Dest) override {
+		auto botRecP = VarPtr.Get<BotInfo*>();
+		auto botRec = *botRecP.get();
 		if (auto pMember = MQ2NetBotsType::FindMember(Member)) {
 			switch ((Information)pMember->ID) {
 			case Enable:
@@ -1166,8 +1160,8 @@ public:
 				Cpt = 0;
 				if (NetStat && NetGrab)
 					for (l = NetMap.begin(); l != NetMap.end(); l++) {
-						BotRec = &(*l).second;
-						if (BotRec->SpawnID == 0) continue;
+						auto botInfo = &(*l).second;
+						if (botInfo->SpawnID == 0) continue;
 						Cpt++;
 					}
 				Dest.Type = mq::datatypes::pIntType;
@@ -1177,10 +1171,10 @@ public:
 				Cpt = 0; Temps[0] = 0;
 				if (NetStat && NetGrab)
 					for (l = NetMap.begin(); l != NetMap.end(); l++) {
-						BotRec = &(*l).second;
-						if (BotRec->SpawnID == 0) continue;
+						auto botInfo = &(*l).second;
+						if (botInfo->SpawnID == 0) continue;
 						if (Cpt++) strcat_s(Temps, " ");
-						strcat_s(Temps, BotRec->Name);
+						strcat_s(Temps, botInfo->Name);
 					}
 				if (IsNumber(Index)) {
 					int n = atoi(Index);
@@ -1192,220 +1186,220 @@ public:
 				Dest.Ptr = Temps;
 				return true;
 			}
-			if (BotRec) {
+			if (botRec) {
 				switch ((Information)pMember->ID) {
 				case Name:
 					Dest.Type = mq::datatypes::pStringType;
 					Dest.Ptr = Temps;
-					strcpy_s(Temps, BotRec->Name);
+					strcpy_s(Temps, botRec->Name);
 					return true;
 				case Zone:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.DWord = BotRec->ZoneID;
+					Dest.DWord = botRec->ZoneID;
 					return true;
 				case Instance:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.DWord = BotRec->InstID;
+					Dest.DWord = botRec->InstID;
 					return true;
 				case ID:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.DWord = BotRec->SpawnID;
+					Dest.DWord = botRec->SpawnID;
 					return true;
 				case Class:
 					Dest.Type = mq::datatypes::pClassType;
-					Dest.DWord = BotRec->ClassID;
+					Dest.DWord = botRec->ClassID;
 					return true;
 				case Level:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.DWord = BotRec->Level;
+					Dest.DWord = botRec->Level;
 					return true;
 				case PctExp:
 					Dest.Type = mq::datatypes::pFloatType;
-					Dest.Float = (float)(BotRec->XP / 3.30f);
+					Dest.Float = (float)(botRec->XP / 3.30f);
 					return true;
 				case PctAAExp:
 					Dest.Type = mq::datatypes::pFloatType;
-					Dest.Float = (float)(BotRec->aaXP / 3.30f);
+					Dest.Float = (float)(botRec->aaXP / 3.30f);
 					return true;
 #if HAS_LEADERSHIP_EXPERIENCE
 				case PctGroupLeaderExp:
 					Dest.Type = mq::datatypes::pFloatType;
-					Dest.Float = (float)(BotRec->glXP / 10.0f);
+					Dest.Float = (float)(botRec->glXP / 10.0f);
 					return true;
 #endif
 				case CurrentHPs:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->LifeCur;
+					Dest.Int = botRec->LifeCur;
 					return true;
 				case MaxHPs:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->LifeMax;
+					Dest.Int = botRec->LifeMax;
 					return true;
 				case PctHPs:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = (BotRec->LifeMax < 1 || BotRec->LifeCur < 1) ? 0 : BotRec->LifeCur * 100 / BotRec->LifeMax;
+					Dest.Int = (botRec->LifeMax < 1 || botRec->LifeCur < 1) ? 0 : botRec->LifeCur * 100 / botRec->LifeMax;
 					return true;
 				case CurrentEndurance:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->EnduCur;
+					Dest.Int = botRec->EnduCur;
 					return true;
 				case MaxEndurance:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->EnduMax;
+					Dest.Int = botRec->EnduMax;
 					return true;
 				case PctEndurance:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = (BotRec->EnduMax < 1 || BotRec->EnduCur < 1) ? 0 : BotRec->EnduCur * 100 / BotRec->EnduMax;
+					Dest.Int = (botRec->EnduMax < 1 || botRec->EnduCur < 1) ? 0 : botRec->EnduCur * 100 / botRec->EnduMax;
 					return true;
 				case CurrentMana:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->ManaCur;
+					Dest.Int = botRec->ManaCur;
 					return true;
 				case MaxMana:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->ManaMax;
+					Dest.Int = botRec->ManaMax;
 					return true;
 				case PctMana:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = (BotRec->ManaMax < 1 || BotRec->ManaCur < 1) ? 0 : BotRec->ManaCur * 100 / BotRec->ManaMax;
+					Dest.Int = (botRec->ManaMax < 1 || botRec->ManaCur < 1) ? 0 : botRec->ManaCur * 100 / botRec->ManaMax;
 					return true;
 				case PetID:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.DWord = BotRec->PetID;
+					Dest.DWord = botRec->PetID;
 					return true;
 				case PetHP:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->PetHP;
+					Dest.Int = botRec->PetHP;
 					return true;
 				case TargetID:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.DWord = BotRec->TargetID;
+					Dest.DWord = botRec->TargetID;
 					return true;
 				case TargetHP:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->TargetHP;
+					Dest.Int = botRec->TargetHP;
 					return true;
 				case Casting:
-					if (BotRec->CastID) {
+					if (botRec->CastID) {
 						Dest.Type = mq::datatypes::pSpellType;
-						Dest.Ptr = GetSpellByID(BotRec->CastID);
+						Dest.Ptr = GetSpellByID(botRec->CastID);
 						return true;
 					}
 					break;
 				case State:
 					Dest.Type = mq::datatypes::pStringType;
 					Dest.Ptr = Temps;
-					if (BotRec->State & STATE_STUN)       strcpy_s(Temps, "STUN");
-					else if (BotRec->State & STATE_STAND) strcpy_s(Temps, "STAND");
-					else if (BotRec->State & STATE_SIT)   strcpy_s(Temps, "SIT");
-					else if (BotRec->State & STATE_DUCK)  strcpy_s(Temps, "DUCK");
-					else if (BotRec->State & STATE_BIND)  strcpy_s(Temps, "BIND");
-					else if (BotRec->State & STATE_FEIGN) strcpy_s(Temps, "FEIGN");
-					else if (BotRec->State & STATE_DEAD)  strcpy_s(Temps, "DEAD");
+					if (botRec->State & STATE_STUN)       strcpy_s(Temps, "STUN");
+					else if (botRec->State & STATE_STAND) strcpy_s(Temps, "STAND");
+					else if (botRec->State & STATE_SIT)   strcpy_s(Temps, "SIT");
+					else if (botRec->State & STATE_DUCK)  strcpy_s(Temps, "DUCK");
+					else if (botRec->State & STATE_BIND)  strcpy_s(Temps, "BIND");
+					else if (botRec->State & STATE_FEIGN) strcpy_s(Temps, "FEIGN");
+					else if (botRec->State & STATE_DEAD)  strcpy_s(Temps, "DEAD");
 					else strcpy_s(Temps, "UNKNOWN");
 					return true;
 				case Attacking:
 					Dest.Type = mq::datatypes::pBoolType;
-					Dest.DWord = BotRec->State & STATE_ATTACK;
+					Dest.DWord = botRec->State & STATE_ATTACK;
 					return true;
 				case AFK:
 					Dest.Type = mq::datatypes::pBoolType;
-					Dest.DWord = BotRec->State & STATE_AFK;
+					Dest.DWord = botRec->State & STATE_AFK;
 					return true;
 				case Binding:
 					Dest.Type = mq::datatypes::pBoolType;
-					Dest.DWord = BotRec->State & STATE_BIND;
+					Dest.DWord = botRec->State & STATE_BIND;
 					return true;
 				case Ducking:
 					Dest.Type = mq::datatypes::pBoolType;
-					Dest.DWord = BotRec->State & STATE_DUCK;
+					Dest.DWord = botRec->State & STATE_DUCK;
 					return true;
 				case Feigning:
 					Dest.Type = mq::datatypes::pBoolType;
-					Dest.DWord = BotRec->State & STATE_FEIGN;
+					Dest.DWord = botRec->State & STATE_FEIGN;
 					return true;
 				case Grouped:
 					Dest.Type = mq::datatypes::pBoolType;
-					Dest.DWord = BotRec->State & STATE_GROUP;
+					Dest.DWord = botRec->State & STATE_GROUP;
 					return true;
 				case Invis:
 					Dest.Type = mq::datatypes::pBoolType;
-					Dest.DWord = BotRec->State & STATE_INVIS;
+					Dest.DWord = botRec->State & STATE_INVIS;
 					return true;
 				case Levitating:
 					Dest.Type = mq::datatypes::pBoolType;
-					Dest.DWord = BotRec->State & STATE_LEV;
+					Dest.DWord = botRec->State & STATE_LEV;
 					return true;
 				case LFG:
 					Dest.Type = mq::datatypes::pBoolType;
-					Dest.DWord = BotRec->State & STATE_LFG;
+					Dest.DWord = botRec->State & STATE_LFG;
 					return true;
 				case Mounted:
 					Dest.Type = mq::datatypes::pBoolType;
-					Dest.DWord = BotRec->State & STATE_MOUNT;
+					Dest.DWord = botRec->State & STATE_MOUNT;
 					return true;
 				case Moving:
 					Dest.Type = mq::datatypes::pBoolType;
-					Dest.DWord = BotRec->State & STATE_MOVING;
+					Dest.DWord = botRec->State & STATE_MOVING;
 					return true;
 				case Raid:
 					Dest.Type = mq::datatypes::pBoolType;
-					Dest.DWord = BotRec->State & STATE_RAID;
+					Dest.DWord = botRec->State & STATE_RAID;
 					return true;
 				case Sitting:
 					Dest.Type = mq::datatypes::pBoolType;
-					Dest.DWord = BotRec->State & STATE_SIT;
+					Dest.DWord = botRec->State & STATE_SIT;
 					return true;
 				case Standing:
 					Dest.Type = mq::datatypes::pBoolType;
-					Dest.DWord = BotRec->State & STATE_STAND;
+					Dest.DWord = botRec->State & STATE_STAND;
 					return true;
 				case Stunned:
 					Dest.Type = mq::datatypes::pBoolType;
-					Dest.DWord = BotRec->State & STATE_STUN;
+					Dest.DWord = botRec->State & STATE_STUN;
 					return true;
 				case FreeBuffSlots:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->FreeBuff;
+					Dest.Int = botRec->FreeBuff;
 					return true;
 				case InZone:
 					Dest.Type = mq::datatypes::pBoolType;
-					Dest.DWord = (inZoned(BotRec->ZoneID, BotRec->InstID));
+					Dest.DWord = (inZoned(botRec->ZoneID, botRec->InstID));
 					return true;
 				case InGroup:
 					Dest.Type = mq::datatypes::pBoolType;
-					Dest.DWord = (inZoned(BotRec->ZoneID, BotRec->InstID) && inGroup(BotRec->SpawnID));
+					Dest.DWord = (inZoned(botRec->ZoneID, botRec->InstID) && inGroup(botRec->SpawnID));
 					return true;
 				case Leader:
 					Dest.Type = mq::datatypes::pStringType;
 					Dest.Ptr = Temps;
-					strcpy_s(Temps, BotRec->Leader);
+					strcpy_s(Temps, botRec->Leader);
 					return true;
 				case Note:
 					Dest.Type = mq::datatypes::pStringType;
 					Dest.Ptr = Temps;
-					strcpy_s(Temps, BotRec->Note);
+					strcpy_s(Temps, botRec->Note);
 					return true;
 				case Location:
 					Dest.Type = mq::datatypes::pStringType;
 					Dest.Ptr = Temps;
-					strcpy_s(Temps, BotRec->Location);
+					strcpy_s(Temps, botRec->Location);
 					return true;
 				case Heading:
 					Dest.Type = mq::datatypes::pStringType;
 					Dest.Ptr = Temps;
-					strcpy_s(Temps, BotRec->Heading);
+					strcpy_s(Temps, botRec->Heading);
 					return true;
 				case Updated:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = clock() - BotRec->Updated;
+					Dest.Int = clock() - botRec->Updated;
 					return true;
 					/*
 							case Gem:
 							  if(!Index[0]) {
 								Temps[0]=0;
 								for (Cpt=0; Cpt<GEMS_MAX; Cpt++) {
-								  sprintf_s(Works,"%d ",BotRec->Gem[Cpt]);
+								  sprintf_s(Works,"%d ",botRec->Gem[Cpt]);
 								  strcat_s(Temps,Works);
 								}
 								Dest.Ptr=Temps;
@@ -1414,7 +1408,7 @@ public:
 							  }
 							  Cpt=atoi(Index);
 							  if(Cpt<GEMS_MAX && Cpt>-1)
-								if(Dest.Ptr=GetSpellByID(BotRec->Gem[Cpt])) {
+								if(Dest.Ptr=GetSpellByID(botRec->Gem[Cpt])) {
 								  Dest.Type=pSpellType;
 								  return true;
 								}
@@ -1423,8 +1417,8 @@ public:
 				case Buff:
 					if (!Index[0]) {
 						Temps[0] = '\0';
-						for (Cpt = 0; Cpt < BUFF_MAX && BotRec->Buff[Cpt]; Cpt++) {
-							sprintf_s(Works, "%d ", BotRec->Buff[Cpt]);
+						for (Cpt = 0; Cpt < BUFF_MAX && botRec->Buff[Cpt]; Cpt++) {
+							sprintf_s(Works, "%d ", botRec->Buff[Cpt]);
 							strcat_s(Temps, Works);
 						}
 						Dest.Ptr = Temps;
@@ -1433,7 +1427,7 @@ public:
 					}
 					Cpt = atoi(Index);
 					if (Cpt<BUFF_MAX && Cpt>-1)
-						if (Dest.Ptr = GetSpellByID(BotRec->Buff[Cpt])) {
+						if (Dest.Ptr = GetSpellByID(botRec->Buff[Cpt])) {
 							Dest.Type = mq::datatypes::pSpellType;
 							return true;
 						}
@@ -1442,8 +1436,8 @@ public:
 							case Duration:
 							  if(!Index[0]) {
 								Temps[0]=0;
-								for (Cpt=0; Cpt<BUFF_MAX && BotRec->Duration[Cpt]; Cpt++) {
-								  sprintf_s(Works,"%d ",BotRec->Duration[Cpt]);
+								for (Cpt=0; Cpt<BUFF_MAX && botRec->Duration[Cpt]; Cpt++) {
+								  sprintf_s(Works,"%d ",botRec->Duration[Cpt]);
 								  strcat_s(Temps,Works);
 								}
 								Dest.Ptr=Temps;
@@ -1452,8 +1446,8 @@ public:
 							  }
 							  Cpt=atoi(Index);
 							  if(Cpt<BUFF_MAX && Cpt>-1)
-						  //   WriteChatf("Duration: %d", BotRec->Duration[Cpt]);
-								if(Dest.Int=BotRec->Duration[Cpt]) {
+						  //   WriteChatf("Duration: %d", botRec->Duration[Cpt]);
+								if(Dest.Int=botRec->Duration[Cpt]) {
 								  Dest.Type=pIntType;
 								  return true;
 								 }
@@ -1462,8 +1456,8 @@ public:
 				case ShortBuff:
 					if (!Index[0]) {
 						Temps[0] = 0;
-						for (Cpt = 0; Cpt < SONG_MAX && BotRec->Song[Cpt]; Cpt++) {
-							sprintf_s(Works, "%d ", BotRec->Song[Cpt]);
+						for (Cpt = 0; Cpt < SONG_MAX && botRec->Song[Cpt]; Cpt++) {
+							sprintf_s(Works, "%d ", botRec->Song[Cpt]);
 							strcat_s(Temps, Works);
 						}
 						Dest.Ptr = Temps;
@@ -1472,7 +1466,7 @@ public:
 					}
 					Cpt = atoi(Index);
 					if (Cpt<SONG_MAX && Cpt>-1)
-						if (Dest.Ptr = GetSpellByID(BotRec->Song[Cpt])) {
+						if (Dest.Ptr = GetSpellByID(botRec->Song[Cpt])) {
 							Dest.Type = mq::datatypes::pSpellType;
 							return true;
 						}
@@ -1480,8 +1474,8 @@ public:
 				case PetBuff:
 					if (!Index[0]) {
 						Temps[0] = '\0';
-						for (Cpt = 0; Cpt < PETS_MAX && BotRec->Pets[Cpt]; Cpt++) {
-							sprintf_s(Works, "%d ", BotRec->Pets[Cpt]);
+						for (Cpt = 0; Cpt < PETS_MAX && botRec->Pets[Cpt]; Cpt++) {
+							sprintf_s(Works, "%d ", botRec->Pets[Cpt]);
 							strcat_s(Temps, Works);
 						}
 						Dest.Ptr = Temps;
@@ -1490,26 +1484,26 @@ public:
 					}
 					Cpt = atoi(Index);
 					if (Cpt<PETS_MAX && Cpt>-1)
-						if (Dest.Ptr = GetSpellByID(BotRec->Pets[Cpt])) {
+						if (Dest.Ptr = GetSpellByID(botRec->Pets[Cpt])) {
 							Dest.Type = mq::datatypes::pSpellType;
 							return true;
 						}
 					break;
 				case TotalAA:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.DWord = BotRec->TotalAA;
+					Dest.DWord = botRec->TotalAA;
 					return true;
 				case UsedAA:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.DWord = BotRec->UsedAA;
+					Dest.DWord = botRec->UsedAA;
 					return true;
 				case UnusedAA:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.DWord = BotRec->UnusedAA;
+					Dest.DWord = botRec->UnusedAA;
 					return true;
 				case CombatState:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.DWord = BotRec->CombatState;
+					Dest.DWord = botRec->CombatState;
 					return true;
 				case Stacks:
 				{
@@ -1527,8 +1521,8 @@ public:
 					Dest.DWord = true;
 					// Check Buffs
 					for (Cpt = 0; Cpt < BUFF_MAX; Cpt++) {
-						if (BotRec->Buff[Cpt]) {
-							if (PSPELL buffSpell = GetSpellByID(BotRec->Buff[Cpt])) {
+						if (botRec->Buff[Cpt]) {
+							if (PSPELL buffSpell = GetSpellByID(botRec->Buff[Cpt])) {
 								if (!NBBuffStackTest(tmpSpell, buffSpell, TRUE, TRUE) || (buffSpell == tmpSpell)) {
 									Dest.DWord = false;
 									return true;
@@ -1538,8 +1532,8 @@ public:
 					}
 					// Check Songs
 					for (Cpt = 0; Cpt < SONG_MAX; Cpt++) {
-						if (BotRec->Song[Cpt]) {
-							if (PSPELL buffSpell = GetSpellByID(BotRec->Song[Cpt])) {
+						if (botRec->Song[Cpt]) {
+							if (PSPELL buffSpell = GetSpellByID(botRec->Song[Cpt])) {
 								if (!IsBardSong(buffSpell) && !((IsSPAEffect(tmpSpell, SPA_CHANGE_FORM) && !tmpSpell->DurationWindow))) {
 									if (!NBBuffStackTest(tmpSpell, buffSpell, TRUE, TRUE) || (buffSpell == tmpSpell)) {
 										Dest.DWord = false;
@@ -1567,8 +1561,8 @@ public:
 					Dest.DWord = true;
 					// Check Pet Buffs
 					for (Cpt = 0; Cpt < PETS_MAX; Cpt++) {
-						if (BotRec->Pets[Cpt]) {
-							if (PSPELL buffSpell = GetSpellByID(BotRec->Pets[Cpt])) {
+						if (botRec->Pets[Cpt]) {
+							if (PSPELL buffSpell = GetSpellByID(botRec->Pets[Cpt])) {
 								if (!NBBuffStackTest(tmpSpell, buffSpell, TRUE, FALSE) || (buffSpell == tmpSpell)) {
 									Dest.DWord = false;
 									return true;
@@ -1580,136 +1574,136 @@ public:
 				}
 				case Detrimentals:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[DETRIMENTALS];
+					Dest.Int = botRec->Detrimental[DETRIMENTALS];
 					return true;
 				case Counters:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[COUNTERS];
+					Dest.Int = botRec->Detrimental[COUNTERS];
 					return true;
 				case Cursed:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[CURSED];
+					Dest.Int = botRec->Detrimental[CURSED];
 					return true;
 				case Diseased:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[DISEASED];
+					Dest.Int = botRec->Detrimental[DISEASED];
 					return true;
 				case Poisoned:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[POISONED];
+					Dest.Int = botRec->Detrimental[POISONED];
 					return true;
 				case Corrupted:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[CORRUPTED];
+					Dest.Int = botRec->Detrimental[CORRUPTED];
 					return true;
 				case EnduDrain:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[ENDUDRAIN];
+					Dest.Int = botRec->Detrimental[ENDUDRAIN];
 					return true;
 				case LifeDrain:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[LIFEDRAIN];
+					Dest.Int = botRec->Detrimental[LIFEDRAIN];
 					return true;
 				case ManaDrain:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[MANADRAIN];
+					Dest.Int = botRec->Detrimental[MANADRAIN];
 					return true;
 				case Blinded:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[BLINDED];
+					Dest.Int = botRec->Detrimental[BLINDED];
 					return true;
 				case CastingLevel:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[CASTINGLEVEL];
+					Dest.Int = botRec->Detrimental[CASTINGLEVEL];
 					return true;
 				case Charmed:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[CHARMED];
+					Dest.Int = botRec->Detrimental[CHARMED];
 					return true;
 				case Feared:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[FEARED];
+					Dest.Int = botRec->Detrimental[FEARED];
 					return true;
 				case Healing:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[HEALING];
+					Dest.Int = botRec->Detrimental[HEALING];
 					return true;
 				case Invulnerable:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[INVULNERABLE];
+					Dest.Int = botRec->Detrimental[INVULNERABLE];
 					return true;
 				case Mesmerized:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[MESMERIZED];
+					Dest.Int = botRec->Detrimental[MESMERIZED];
 					return true;
 				case Rooted:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[ROOTED];
+					Dest.Int = botRec->Detrimental[ROOTED];
 					return true;
 				case Silenced:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[SILENCED];
+					Dest.Int = botRec->Detrimental[SILENCED];
 					return true;
 				case Slowed:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[SLOWED];
+					Dest.Int = botRec->Detrimental[SLOWED];
 					return true;
 				case Snared:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[SNARED];
+					Dest.Int = botRec->Detrimental[SNARED];
 					return true;
 				case SpellCost:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[SPELLCOST];
+					Dest.Int = botRec->Detrimental[SPELLCOST];
 					return true;
 				case SpellSlowed:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[SPELLSLOWED];
+					Dest.Int = botRec->Detrimental[SPELLSLOWED];
 					return true;
 				case SpellDamage:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[SPELLDAMAGE];
+					Dest.Int = botRec->Detrimental[SPELLDAMAGE];
 					return true;
 				case Trigger:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[TRIGGR];
+					Dest.Int = botRec->Detrimental[TRIGGR];
 					return true;
 				case Resistance:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[RESISTANCE];
+					Dest.Int = botRec->Detrimental[RESISTANCE];
 					return true;
 				case Detrimental:
 					Temps[0] = 0;
-					if (BotRec->Detrimental[CURSED])       strcat_s(Temps, "Cursed ");
-					if (BotRec->Detrimental[DISEASED])     strcat_s(Temps, "Diseased ");
-					if (BotRec->Detrimental[POISONED])     strcat_s(Temps, "Poisoned ");
-					if (BotRec->Detrimental[ENDUDRAIN])    strcat_s(Temps, "EnduDrain ");
-					if (BotRec->Detrimental[LIFEDRAIN])    strcat_s(Temps, "LifeDrain ");
-					if (BotRec->Detrimental[MANADRAIN])    strcat_s(Temps, "ManaDrain ");
-					if (BotRec->Detrimental[BLINDED])      strcat_s(Temps, "Blinded ");
-					if (BotRec->Detrimental[CASTINGLEVEL]) strcat_s(Temps, "CastingLevel ");
-					if (BotRec->Detrimental[CHARMED])      strcat_s(Temps, "Charmed ");
-					if (BotRec->Detrimental[FEARED])       strcat_s(Temps, "Feared ");
-					if (BotRec->Detrimental[HEALING])      strcat_s(Temps, "Healing ");
-					if (BotRec->Detrimental[INVULNERABLE]) strcat_s(Temps, "Invulnerable ");
-					if (BotRec->Detrimental[MESMERIZED])   strcat_s(Temps, "Mesmerized ");
-					if (BotRec->Detrimental[ROOTED])       strcat_s(Temps, "Rooted ");
-					if (BotRec->Detrimental[SILENCED])     strcat_s(Temps, "Silenced ");
-					if (BotRec->Detrimental[SLOWED])       strcat_s(Temps, "Slowed ");
-					if (BotRec->Detrimental[SNARED])       strcat_s(Temps, "Snared ");
-					if (BotRec->Detrimental[SPELLCOST])    strcat_s(Temps, "SpellCost ");
-					if (BotRec->Detrimental[SPELLDAMAGE])  strcat_s(Temps, "SpellDamage ");
-					if (BotRec->Detrimental[SPELLSLOWED])  strcat_s(Temps, "SpellSlowed ");
-					if (BotRec->Detrimental[TRIGGR])       strcat_s(Temps, "Trigger ");
-					if (BotRec->Detrimental[CORRUPTED])    strcat_s(Temps, "Corrupted ");
-					if (BotRec->Detrimental[RESISTANCE])   strcat_s(Temps, "Resistance ");
+					if (botRec->Detrimental[CURSED])       strcat_s(Temps, "Cursed ");
+					if (botRec->Detrimental[DISEASED])     strcat_s(Temps, "Diseased ");
+					if (botRec->Detrimental[POISONED])     strcat_s(Temps, "Poisoned ");
+					if (botRec->Detrimental[ENDUDRAIN])    strcat_s(Temps, "EnduDrain ");
+					if (botRec->Detrimental[LIFEDRAIN])    strcat_s(Temps, "LifeDrain ");
+					if (botRec->Detrimental[MANADRAIN])    strcat_s(Temps, "ManaDrain ");
+					if (botRec->Detrimental[BLINDED])      strcat_s(Temps, "Blinded ");
+					if (botRec->Detrimental[CASTINGLEVEL]) strcat_s(Temps, "CastingLevel ");
+					if (botRec->Detrimental[CHARMED])      strcat_s(Temps, "Charmed ");
+					if (botRec->Detrimental[FEARED])       strcat_s(Temps, "Feared ");
+					if (botRec->Detrimental[HEALING])      strcat_s(Temps, "Healing ");
+					if (botRec->Detrimental[INVULNERABLE]) strcat_s(Temps, "Invulnerable ");
+					if (botRec->Detrimental[MESMERIZED])   strcat_s(Temps, "Mesmerized ");
+					if (botRec->Detrimental[ROOTED])       strcat_s(Temps, "Rooted ");
+					if (botRec->Detrimental[SILENCED])     strcat_s(Temps, "Silenced ");
+					if (botRec->Detrimental[SLOWED])       strcat_s(Temps, "Slowed ");
+					if (botRec->Detrimental[SNARED])       strcat_s(Temps, "Snared ");
+					if (botRec->Detrimental[SPELLCOST])    strcat_s(Temps, "SpellCost ");
+					if (botRec->Detrimental[SPELLDAMAGE])  strcat_s(Temps, "SpellDamage ");
+					if (botRec->Detrimental[SPELLSLOWED])  strcat_s(Temps, "SpellSlowed ");
+					if (botRec->Detrimental[TRIGGR])       strcat_s(Temps, "Trigger ");
+					if (botRec->Detrimental[CORRUPTED])    strcat_s(Temps, "Corrupted ");
+					if (botRec->Detrimental[RESISTANCE])   strcat_s(Temps, "Resistance ");
 					if (size_t len = strlen(Temps)) Temps[--len] = 0;
 					Dest.Type = mq::datatypes::pStringType;
 					Dest.Ptr = Temps;
 					return true;
 				case NoCure:
 					Dest.Type = mq::datatypes::pIntType;
-					Dest.Int = BotRec->Detrimental[NOCURE];
+					Dest.Int = botRec->Detrimental[NOCURE];
 					return true;
 
 				}
@@ -1727,15 +1721,20 @@ public:
 	}
 
 	~MQ2NetBotsType() {
-		BotRec = 0;
 	}
 };
 
-bool dataNetBots(const char* Index, MQTypeVar &Dest) {
-	Dest.DWord = 1;
-	Dest.Type = pNetBotsType;
-	pNetBotsType->Search(Index);
-	return true;
+bool dataNetBots(const char* szIndex, MQTypeVar & Ret) {
+		Ret.Type = pNetBotsType;
+
+		if (szIndex && szIndex[0])
+		{
+			auto botinfo = BotFind(szIndex);
+			Ret.Set(botinfo);
+			return true;
+		}
+
+		return false;
 }
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
