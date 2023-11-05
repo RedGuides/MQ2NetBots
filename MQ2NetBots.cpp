@@ -123,7 +123,7 @@ long                NetSend = 0;           // Send Information?
 long                NetLast = 0;           // Last Send Time Mark
 char                NetNote[NOTE_MAX];   // Network Note
 
-std::map<std::string, BotInfo> NetMap;              // BotInfo Mapped List
+std::map<std::string, std::shared_ptr<BotInfo>&> NetMap;              // BotInfo Mapped List
 Blech               Packet('#');         // BotInfo Event Triggers
 BotInfo            *CurBot = 0;            // BotInfo Current
 
@@ -162,20 +162,20 @@ void EQBCBroadCast(PCHAR Buffer) {
 	}
 }
 
-BotInfo* BotLoad(PCHAR Name) {
-	std::map<std::string, BotInfo>::iterator f = NetMap.find(Name);
+std::shared_ptr<BotInfo>& BotLoad(PCHAR Name) {
+	std::map<std::string, std::shared_ptr<BotInfo>&>::iterator f = NetMap.find(Name);
 	if (NetMap.end() == f) {
 		BotInfo RecInfo;
 		ZeroMemory(&RecInfo.Name, sizeof(BotInfo));
 		strcpy_s(RecInfo.Name, Name);
-		NetMap.insert(std::map<std::string, BotInfo>::value_type(RecInfo.Name, RecInfo));
+		NetMap.insert(std::map<std::string, std::shared_ptr<BotInfo>&>::value_type(RecInfo.Name, std::make_shared<BotInfo>(RecInfo)));
 		f = NetMap.find(Name);
 	}
-	return &(*f).second;
+	return (*f).second;
 }
 
 void BotQuit(PCHAR Name) {
-	std::map<std::string, BotInfo>::iterator f = NetMap.find(Name);
+	std::map<std::string, std::shared_ptr<BotInfo>&>::iterator f = NetMap.find(Name);
 	if (NetMap.end() != f) NetMap.erase(f);
 }
 
@@ -924,7 +924,7 @@ void BroadCast() {
 
 		EQBCBroadCast(Buffer);
 		memcpy(sBuffer, wBuffer, sizeof(wBuffer));
-		if (CurBot = BotLoad(GetCharInfo()->Name)) {
+		if (CurBot = BotLoad(GetCharInfo()->Name).get()) {
 			Packet.Feed(Buffer);
 			CurBot->Updated = clock();
 			CurBot = 0;
@@ -938,7 +938,7 @@ class MQ2NetBotsType *pNetBotsType = 0;
 class MQ2NetBotsType : public MQ2Type {
 
 private:
-	std::map<std::string, BotInfo>::iterator l;
+	std::map<std::string, std::shared_ptr<BotInfo>&>::iterator l;
 	char Temps[MAX_STRING];
 	char Works[MAX_STRING];
 	long Cpt;
@@ -1153,8 +1153,9 @@ public:
 				Cpt = 0;
 				if (NetStat && NetGrab)
 					for (l = NetMap.begin(); l != NetMap.end(); l++) {
-						auto botInfo = &(*l).second;
-						if (botInfo->SpawnID == 0) continue;
+						auto botInfo = (*l).second;
+						if (botInfo->SpawnID == 0) 
+							continue;
 						Cpt++;
 					}
 				Dest.Type = mq::datatypes::pIntType;
@@ -1164,8 +1165,9 @@ public:
 				Cpt = 0; Temps[0] = 0;
 				if (NetStat && NetGrab)
 					for (l = NetMap.begin(); l != NetMap.end(); l++) {
-						auto botInfo = &(*l).second;
-						if (botInfo->SpawnID == 0) continue;
+						auto botInfo = (*l).second;
+						if (botInfo->SpawnID == 0) 
+							continue;
 						if (Cpt++) strcat_s(Temps, " ");
 						strcat_s(Temps, botInfo->Name);
 					}
@@ -1717,20 +1719,20 @@ public:
 	}
 };
 
-bool dataNetBots(const char* szIndex, MQTypeVar & Ret) {
-		Ret.Type = pNetBotsType;
-		if (szIndex && szIndex[0])
+bool dataNetBots(const char* szIndex, MQTypeVar& Ret) {
+	Ret.Type = pNetBotsType;
+	if (szIndex && szIndex[0])
+	{
+		auto f = NetMap.find(szIndex);
+		if (f != NetMap.end())
 		{
-			auto f = NetMap.find(szIndex);
-			if (f != NetMap.end())
-			{
-				Ret.Set(f->second);
-				return true;
-			}
-			return false;
+			Ret.Set(f->second);
+			return true;
 		}
+		return false;
+	}
 
-		return true;
+	return true;
 }
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
@@ -1794,7 +1796,7 @@ PLUGIN_API VOID OnNetBotMSG(PCHAR Name, PCHAR Msg) {
 #endif DEBUGGING
 		CHAR szCmd[MAX_STRING] = { 0 };
 		strcpy_s(szCmd, Msg);
-		if (CurBot = BotLoad(Name)) {
+		if (CurBot = BotLoad(Name).get()) {
 			Packet.Feed(szCmd);
 			CurBot->Updated = clock();
 			CurBot = 0;
