@@ -123,7 +123,7 @@ long                NetSend = 0;           // Send Information?
 long                NetLast = 0;           // Last Send Time Mark
 char                NetNote[NOTE_MAX];   // Network Note
 
-std::map<std::string, std::shared_ptr<BotInfo>&> NetMap;              // BotInfo Mapped List
+std::map<std::string, std::shared_ptr<BotInfo>> NetMap;              // BotInfo Mapped List
 Blech               Packet('#');         // BotInfo Event Triggers
 BotInfo            *CurBot = 0;            // BotInfo Current
 
@@ -162,32 +162,28 @@ void EQBCBroadCast(PCHAR Buffer) {
 	}
 }
 
-std::shared_ptr<BotInfo>& BotLoad(PCHAR Name) {
-	std::map<std::string, std::shared_ptr<BotInfo>&>::iterator f = NetMap.find(Name);
-	if (NetMap.end() == f) {
-		BotInfo RecInfo;
-		ZeroMemory(&RecInfo.Name, sizeof(BotInfo));
-		strcpy_s(RecInfo.Name, Name);
-		NetMap.insert(std::map<std::string, std::shared_ptr<BotInfo>&>::value_type(RecInfo.Name, std::make_shared<BotInfo>(RecInfo)));
-		f = NetMap.find(Name);
-	}
+std::shared_ptr<BotInfo> BotLoad(PCHAR Name) {
+	BotInfo RecInfo;
+	ZeroMemory(&RecInfo.Name, sizeof(BotInfo));
+	strcpy_s(RecInfo.Name, Name);
+	auto& [f, _] = NetMap.emplace(RecInfo.Name, std::make_shared<BotInfo>(RecInfo));
 	return (*f).second;
 }
 
 void BotQuit(PCHAR Name) {
-	std::map<std::string, std::shared_ptr<BotInfo>&>::iterator f = NetMap.find(Name);
+	auto f = NetMap.find(Name);
 	if (NetMap.end() != f) NetMap.erase(f);
 }
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
 
 bool inGroup(unsigned long ID) {
-	PSPAWNINFO pID = (PSPAWNINFO)GetSpawnByID(ID);
+	auto pID = (PSPAWNINFO)GetSpawnByID(ID);
 	if (pID && pID->MasterID) pID = (PSPAWNINFO)GetSpawnByID(pID->MasterID);
 	if (pID && GetCharInfo() && GetCharInfo()->pSpawn) {
 		if (GetCharInfo()->pSpawn->SpawnID == pID->SpawnID)   return true;
 		if (GetCharInfo()->pGroupInfo) for (int G = 1; G < 6; G++)
-			if (PSPAWNINFO pSpawn = GetGroupMember(G))
+			if (auto pSpawn = GetGroupMember(G))
 				if (pID->SpawnID == pSpawn->SpawnID)  return true;
 	}
 	return false;
@@ -427,19 +423,19 @@ BOOL NBBuffStackTest(PSPELL aSpell, PSPELL bSpell, BOOL bIgnoreTriggeringEffects
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
 
-void InfoSong(const char* Line) {
+void InfoSong(BotInfo* botInfo, const char* Line) {
 	char Buf[MAX_STRING];
 	for (long Idx = 0; Idx < SONG_MAX; Idx++) {
 		GetArg(Buf, Line, Idx + 1, FALSE, FALSE, FALSE, ':');
-		CurBot->Song[Idx] = atol(Buf);
+		botInfo->Song[Idx] = atol(Buf);
 	}
 }
 
-void InfoPets(const char* Line) {
+void InfoPets(BotInfo* botInfo, const char* Line) {
 	char Buf[MAX_STRING];
 	for (long Idx = 0; Idx < PETS_MAX; Idx++) {
 		GetArg(Buf, Line, Idx + 1, FALSE, FALSE, FALSE, ':');
-		CurBot->Pets[Idx] = atol(Buf);
+		botInfo->Pets[Idx] = atol(Buf);
 	}
 }
 
@@ -453,11 +449,11 @@ void InfoGems(PCHAR Line) {
 }
 */
 
-void InfoBuff(const char* Line) {
+void InfoBuff(BotInfo* botInfo, const char* Line) {
 	char Buf[MAX_STRING];
 	for (long Idx = 0; Idx < BUFF_MAX; Idx++) {
 		GetArg(Buf, Line, Idx + 1, FALSE, FALSE, FALSE, ':');
-		CurBot->Buff[Idx] = atol(Buf);
+		botInfo->Buff[Idx] = atol(Buf);
 	}
 }
 
@@ -474,11 +470,11 @@ void InfoDura(PCHAR Line) {
 }
 */
 
-void InfoDetr(const char* Line) {
+void InfoDetr(BotInfo* botInfo, const char* Line) {
 	char Buf[MAX_STRING];
 	for (long Idx = 0; Idx < DSIZE; Idx++) {
 		GetArg(Buf, Line, Idx + 1, FALSE, FALSE, FALSE, ':');
-		CurBot->Detrimental[Idx] = atoi(Buf);
+		botInfo->Detrimental[Idx] = atoi(Buf);
 	}
 }
 
@@ -563,13 +559,13 @@ void __stdcall ParseInfo(unsigned int ID, void *pData, PBLECHVALUE pValues) {
 				break;
 			//      case 30: InfoGems(pValues->Value);                      break;
 			case 31:
-				InfoBuff(pValues->Value.c_str());
+				InfoBuff(CurBot, pValues->Value.c_str());
 				break;
 			case 32:
-				InfoSong(pValues->Value.c_str());
+				InfoSong(CurBot, pValues->Value.c_str());
 				break;
 			case 33:
-				InfoPets(pValues->Value.c_str());
+				InfoPets(CurBot, pValues->Value.c_str());
 				break;
 			//      case 34: InfoDura(pValues->Value);                     break;
 			case 35:
@@ -588,7 +584,7 @@ void __stdcall ParseInfo(unsigned int ID, void *pData, PBLECHVALUE pValues) {
 				strcpy_s(CurBot->Note, pValues->Value.c_str());
 				break;
 			case 40:
-				InfoDetr(pValues->Value.c_str());
+				InfoDetr(CurBot, pValues->Value.c_str());
 				break;
 			case 89:
 				strcpy_s(CurBot->Location, pValues->Value.c_str());
@@ -674,7 +670,7 @@ template <unsigned int _Size>PSTR MakeEXPER(CHAR(&Buffer)[_Size]) {
 }
 
 template <unsigned int _Size>PSTR MakeLEADR(CHAR(&Buffer)[_Size]) {
-	if (PCHARINFO pChar = GetCharInfo()) {
+	if (auto pChar = GetCharInfo()) {
 		if (pChar->pGroupInfo && pChar->pGroupInfo->pLeader && !pChar->pGroupInfo->pLeader->Name.empty()) {
 			strcpy_s(Buffer, pChar->pGroupInfo->pLeader->Name.c_str());
 		}
@@ -712,7 +708,7 @@ template <unsigned int _Size>PSTR MakeMANAS(CHAR(&Buffer)[_Size]) {
 
 template <unsigned int _Size>PSTR MakePBUFF(CHAR(&Buffer)[_Size]) {
 	Buffer[0] = '\0';
-	PlayerClient* Pet = GetSpawnByID(pLocalPlayer->PetID);
+	auto Pet = GetSpawnByID(pLocalPlayer->PetID);
 	if (Pet && pPetInfoWnd)
 	{
 		// SpellID is an int, so the longest is probably 11.
@@ -731,7 +727,7 @@ template <unsigned int _Size>PSTR MakePBUFF(CHAR(&Buffer)[_Size]) {
 }
 
 template <unsigned int _Size>PSTR MakePETIL(CHAR(&Buffer)[_Size]) {
-	PSPAWNINFO Pet = (PSPAWNINFO)GetSpawnByID(GetCharInfo()->pSpawn->PetID);
+	auto Pet = (PSPAWNINFO)GetSpawnByID(GetCharInfo()->pSpawn->PetID);
 	if (pPetInfoWnd && Pet) {
 		sprintf_s(Buffer, "%d:%d", Pet->SpawnID,
 			static_cast<int32_t>(Pet->HPCurrent * 100 / Pet->HPMax));
@@ -796,7 +792,7 @@ template <unsigned int _Size>PSTR MakeAAPTS(CHAR(&Buffer)[_Size]) {
 }
 
 template <unsigned int _Size>PSTR MakeTARGT(CHAR(&Buffer)[_Size]) {
-	PSPAWNINFO Tar = pTarget ? ((PSPAWNINFO)pTarget) : NULL;
+	auto Tar = pTarget ? ((PSPAWNINFO)pTarget) : NULL;
 	if (Tar) {
 		sprintf_s(Buffer, "%d:%d", Tar->SpawnID,
 			static_cast<int32_t>(Tar->HPCurrent * 100 / Tar->HPMax));
@@ -816,7 +812,7 @@ template <unsigned int _Size>PSTR MakeDETR(CHAR(&Buffer)[_Size]) {
 	char tmp[MAX_STRING]; Buffer[0] = 0;
 	ZeroMemory(&dValues, sizeof(dValues));
 	for (int b = 0; b < BUFF_MAX; b++) {
-		if (PSPELL spell = GetSpellByID(GetPcProfile()->GetEffect(b).SpellID)) {
+		if (auto spell = GetSpellByID(GetPcProfile()->GetEffect(b).SpellID)) {
 			if (!spell->SpellType) {
 				bool d = false;
 				bool r = false;
@@ -938,7 +934,6 @@ class MQ2NetBotsType *pNetBotsType = 0;
 class MQ2NetBotsType : public MQ2Type {
 
 private:
-	std::map<std::string, std::shared_ptr<BotInfo>&>::iterator l;
 	char Temps[MAX_STRING];
 	char Works[MAX_STRING];
 	long Cpt;
@@ -1152,8 +1147,7 @@ public:
 			case Counts:
 				Cpt = 0;
 				if (NetStat && NetGrab)
-					for (l = NetMap.begin(); l != NetMap.end(); l++) {
-						auto botInfo = (*l).second;
+					for (auto& [_, botInfo] : NetMap) {
 						if (botInfo->SpawnID == 0) 
 							continue;
 						Cpt++;
@@ -1164,8 +1158,7 @@ public:
 			case Client:
 				Cpt = 0; Temps[0] = 0;
 				if (NetStat && NetGrab)
-					for (l = NetMap.begin(); l != NetMap.end(); l++) {
-						auto botInfo = (*l).second;
+					for (auto& [_, botInfo] : NetMap) {
 						if (botInfo->SpawnID == 0) 
 							continue;
 						if (Cpt++) strcat_s(Temps, " ");
@@ -1517,7 +1510,7 @@ public:
 					// Check Buffs
 					for (Cpt = 0; Cpt < BUFF_MAX; Cpt++) {
 						if (botRec->Buff[Cpt]) {
-							if (PSPELL buffSpell = GetSpellByID(botRec->Buff[Cpt])) {
+							if (auto buffSpell = GetSpellByID(botRec->Buff[Cpt])) {
 								if (!NBBuffStackTest(tmpSpell, buffSpell, TRUE, TRUE) || (buffSpell == tmpSpell)) {
 									Dest.DWord = false;
 									return true;
@@ -1528,7 +1521,7 @@ public:
 					// Check Songs
 					for (Cpt = 0; Cpt < SONG_MAX; Cpt++) {
 						if (botRec->Song[Cpt]) {
-							if (PSPELL buffSpell = GetSpellByID(botRec->Song[Cpt])) {
+							if (auto buffSpell = GetSpellByID(botRec->Song[Cpt])) {
 								if (!IsBardSong(buffSpell) && !((IsSPAEffect(tmpSpell, SPA_CHANGE_FORM) && !tmpSpell->DurationWindow))) {
 									if (!NBBuffStackTest(tmpSpell, buffSpell, TRUE, TRUE) || (buffSpell == tmpSpell)) {
 										Dest.DWord = false;
@@ -1557,7 +1550,7 @@ public:
 					// Check Pet Buffs
 					for (Cpt = 0; Cpt < PETS_MAX; Cpt++) {
 						if (botRec->Pets[Cpt]) {
-							if (PSPELL buffSpell = GetSpellByID(botRec->Pets[Cpt])) {
+							if (auto buffSpell = GetSpellByID(botRec->Pets[Cpt])) {
 								if (!NBBuffStackTest(tmpSpell, buffSpell, TRUE, FALSE) || (buffSpell == tmpSpell)) {
 									Dest.DWord = false;
 									return true;
