@@ -1714,7 +1714,7 @@ public:
 
 bool dataNetBots(const char* szIndex, MQTypeVar& Ret) {
 	Ret.Type = pNetBotsType;
-	if (szIndex && szIndex[0])
+	if (szIndex != nullptr && szIndex[0] != '\0')
 	{
 		auto f = NetMap.find(szIndex);
 		if (f != NetMap.end())
