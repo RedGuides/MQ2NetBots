@@ -715,7 +715,7 @@ template <unsigned int _Size>PSTR MakePBUFF(CHAR(&Buffer)[_Size]) {
 		char tmp[20] = { 0 };
 		for (int b = 0; b < pPetInfoWnd->GetMaxBuffs(); b++)
 		{
-			int SpellID = pPetInfoWnd->Buff[b];
+			int SpellID = pPetInfoWnd->GetBuff(b);
 			if (SpellID > 0) {
 				sprintf_s(tmp, "%d:", SpellID);
 				strcat_s(Buffer, tmp);
