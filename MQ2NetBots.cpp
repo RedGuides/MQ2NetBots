@@ -63,7 +63,7 @@ enum {
 
 enum {
 	BUFFS, CASTD, ENDUS, EXPER, LEADR, LEVEL, LIFES, MANAS,
-	PBUFF, PETIL, SPGEM, SONGS, STATE, TARGT, ZONES, DURAS,
+	PBUFF, PETIL, SPGEM, SONGS, STATE, TARGT, ZONES, DURAS, SHORTDURAS,
 	LOCAT, HEADN, AAPTS, OOCST, NOTE, DETR, ESIZE
 };
 
@@ -98,7 +98,8 @@ public:
 	long              Pets[PETS_MAX];      // Spell Pets
 	long              Song[SONG_MAX];      // Spell Song
 	long              Buff[BUFF_MAX];      // Spell Buff
-  //  long              Duration[BUFF_MAX];  // Buff duration
+    int               Duration[BUFF_MAX];  // Buff duration
+	int               ShortDuration[SONG_MAX];  // Song duration
 	long              FreeBuff;            // FreeBuffSlot;
 #if HAS_LEADERSHIP_EXPERIENCE
 	double            glXP;                // glXP
@@ -457,18 +458,33 @@ void InfoBuff(BotInfo* botInfo, const char* Line) {
 	}
 }
 
-/*
-void InfoDura(PCHAR Line) {
-  char Buf[MAX_STRING];
-  for(long Idx=0; Idx<BUFF_MAX; Idx++) {
-//  WriteChatf("We got=%s", Line);
-	GetArg(Buf,Line,Idx+1,FALSE,FALSE,FALSE,':');
-	CurBot->Duration[Idx]=atol(Buf);
-//   WriteChatf("Set Duration to %s", Buf);
-//   WriteChatf("CurBot->Duration is %d", CurBot->Duration[Idx]);
-  }
+
+void InfoDura(BotInfo* botInfo, const char* Line) {
+	char Buf[MAX_STRING];
+	//WriteChatf("We got=%s", Line);
+	for (long Idx = 0; Idx < BUFF_MAX; Idx++) {
+		GetArg(Buf, Line, Idx + 1, FALSE, FALSE, FALSE, ':');
+		botInfo->Duration[Idx] = atol(Buf);
+
+		//if (Buf[0] != '\0') {
+		//	WriteChatf("Set Duration to %s", Buf);
+		//	WriteChatf("botInfo->Duration is %d", botInfo->Duration[Idx]);
+		//}
+	}
 }
-*/
+
+void InfoShortDura(BotInfo* botInfo, const char* Line) {
+	char Buf[MAX_STRING];
+	//  WriteChatf("We got=%s", Line);
+	for (long Idx = 0; Idx < SONG_MAX; Idx++) {
+		GetArg(Buf, Line, Idx + 1, FALSE, FALSE, FALSE, ':');
+		botInfo->ShortDuration[Idx] = atol(Buf);
+		//if (Buf[0] != '\0') {
+		//	WriteChatf("Set Duration to %s", Buf);
+		//	WriteChatf("botInfo->Duration is %d", botInfo->ShortDuration[Idx]);
+		//}
+	}
+}
 
 void InfoDetr(BotInfo* botInfo, const char* Line) {
 	char Buf[MAX_STRING];
@@ -567,7 +583,9 @@ void __stdcall ParseInfo(unsigned int ID, void *pData, PBLECHVALUE pValues) {
 			case 33:
 				InfoPets(CurBot, pValues->Value.c_str());
 				break;
-			//      case 34: InfoDura(pValues->Value);                     break;
+			case 34:
+				InfoDura(CurBot, pValues->Value.c_str());
+				break;
 			case 35:
 				CurBot->TotalAA = tmpInt;
 				break;
@@ -592,6 +610,9 @@ void __stdcall ParseInfo(unsigned int ID, void *pData, PBLECHVALUE pValues) {
 			case 90:
 				strcpy_s(CurBot->Heading, pValues->Value.c_str());
 				break;
+			case 155: 
+				InfoShortDura(CurBot, pValues->Value.c_str());
+				break;
 			default:
 				break;
 		}
@@ -601,32 +622,93 @@ void __stdcall ParseInfo(unsigned int ID, void *pData, PBLECHVALUE pValues) {
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
 
-/*
-PSTR MakeDURAS(CHAR(&Buffer)[_Size]) {
-  long Duration; char tmp[MAX_STRING]; Buffer[0]=0;
-  for(int b=0; b<BUFF_MAX; b++)
-	if((Duration=GetCharInfo2()->Buff[b].Duration)>0) {
-	  sprintf_s(tmp,"%d:",Duration);
-//     WriteChatf("Spell %d:%d", GetCharInfo2()->Buff[b].SpellID, GetCharInfo2()->Buff[b].Duration );
-	  strcat_s(Buffer,tmp);
-	}
+template <unsigned int _Size>
+PSTR MakeShortDURAS(CHAR(&Buffer)[_Size]) {
+	int Duration; int SpellID; char tmp[MAX_STRING] = { 0 }; Buffer[0] = '\0';
+	//char tmp2[MAX_STRING] = { 0 }; char tmp3[MAX_STRING] = { 0 };
+	for (int b = 0; b < SONG_MAX; b++) {
+		if ((SpellID = GetPcProfile()->GetTempEffect(b).SpellID) > 0) {
+			//sprintf_s(tmp3, "%d: ", SpellID);
+			//strcat_s(tmp2, tmp3);
+			if (auto buffInfo = pSongWnd->GetBuffInfoBySpellID(SpellID)) {
+				if ((Duration = buffInfo.GetBuffTimer()) != 0) {
+					if (Duration < 0)
+					{
+						Duration = 999999000;
+					}
+					sprintf_s(tmp, "%d:", Duration);
+					strcat_s(Buffer, tmp);
 
-  return Buffer;
+					//sprintf_s(tmp3, "%0.1f, ", ((float)Duration)/1000.0f);
+					//strcat_s(tmp2, tmp3);
+				}
+			}
+		}
+	}
+	//WriteChatf(tmp2);
+	return Buffer;
 }
-*/
+
+template <unsigned int _Size>
+PSTR MakeDURAS(CHAR(&Buffer)[_Size]) {
+	int Duration; int SpellID; char tmp[MAX_STRING] = { 0 }; Buffer[0] = '\0';
+	//char tmp2[MAX_STRING] = { 0 }; char tmp3[MAX_STRING] = { 0 };
+	for (int b = 0; b < BUFF_MAX; b++) {
+		if ((SpellID = GetPcProfile()->GetEffect(b).SpellID) > 0) {
+			//sprintf_s(tmp3, "%d: ", SpellID);
+			//strcat_s(tmp2, tmp3);
+			if (auto buffInfo = pBuffWnd->GetBuffInfoBySpellID(SpellID)) {
+				if ((Duration = buffInfo.GetBuffTimer()) != 0) {
+					if (Duration < 0)
+					{
+						Duration = 999999000;
+					}
+					sprintf_s(tmp, "%d:", Duration);
+					strcat_s(Buffer, tmp);
+
+					//sprintf_s(tmp3, "%0.1f, ", ((float)Duration)/1000.0f);
+					//strcat_s(tmp2, tmp3);
+				}
+			}
+		}
+	}
+	//WriteChatf(tmp2);
+	return Buffer;
+}
+
 
 template <unsigned int _Size>
 PSTR MakeBUFFS(CHAR(&Buffer)[_Size]) {
-	long SpellID; char tmp[MAX_STRING] = { 0 }; Buffer[0] = '\0';
-	for (int b = 0; b < BUFF_MAX; b++)
+	int SpellID; char tmp[MAX_STRING] = { 0 }; Buffer[0] = '\0';
+	for (int b = 0; b < BUFF_MAX; b++) {
 		if ((SpellID = GetPcProfile()->GetEffect(b).SpellID) > 0) {
-			sprintf_s(tmp, "%d:", SpellID);
-			strcat_s(Buffer, tmp);
+			if (auto buffInfo = pBuffWnd->GetBuffInfoBySpellID(SpellID)) {
+				if (buffInfo.GetBuffTimer() != 0) {
+					sprintf_s(tmp, "%d:", SpellID);
+					strcat_s(Buffer, tmp);
+				}
+			}
 		}
+	}
 	if (strlen(Buffer)) {
 		sprintf_s(tmp, "|F=${Me.FreeBuffSlots}");
 		ParseMacroData(tmp, sizeof(tmp));
 		strcat_s(Buffer, tmp);
+	}
+	return Buffer;
+}
+
+template <unsigned int _Size>PSTR MakeSONGS(CHAR(&Buffer)[_Size]) {
+	int SpellID = 0; char tmp[MAX_STRING] = { 0 }; Buffer[0] = '\0';
+	for (int b = 0; b < NUM_TEMP_BUFFS; b++) {
+		if ((SpellID = GetPcProfile()->GetTempEffect(b).SpellID) > 0) {
+			if (auto buffInfo = pSongWnd->GetBuffInfoBySpellID(SpellID)) {
+				if (buffInfo.GetBuffTimer() != 0) {
+					sprintf_s(tmp, "%d:", SpellID);
+					strcat_s(Buffer, tmp);
+				}
+			}
+		}
 	}
 	return Buffer;
 }
@@ -748,16 +830,6 @@ PSTR MakeSPGEM(CHAR(&Buffer)[_Size]) {
   return Buffer;
 }
 */
-
-template <unsigned int _Size>PSTR MakeSONGS(CHAR(&Buffer)[_Size]) {
-	long SpellID = 0; char tmp[MAX_STRING] = { 0 }; Buffer[0] = '\0';
-	for (int b = 0; b < NUM_TEMP_BUFFS; b++)
-		if ((SpellID = GetPcProfile()->GetTempEffect(b).SpellID) > 0) {
-			sprintf_s(tmp, "%d:", SpellID);
-			strcat_s(Buffer, tmp);
-		}
-	return Buffer;
-}
 
 template <unsigned int _Size>PSTR MakeSTATE(CHAR(&Buffer)[_Size]) {
 	WORD Status = 0;
@@ -890,11 +962,12 @@ void BroadCast() {
 	sprintf_s(wBuffer[STATE], "Y=%s|", MakeSTATE(Buffer));
 	sprintf_s(wBuffer[TARGT], "T=%s|", MakeTARGT(Buffer));
 	sprintf_s(wBuffer[ZONES], "Z=%s|", MakeZONES(Buffer));
-	//  sprintf_s(wBuffer[DURAS],"D=%s|",MakeDURAS(Buffer));
+	sprintf_s(wBuffer[DURAS], "D=%s|", MakeDURAS(Buffer));
+	sprintf_s(wBuffer[SHORTDURAS], "F=%s|", MakeShortDURAS(Buffer));
 	sprintf_s(wBuffer[AAPTS], "A=%s|", MakeAAPTS(Buffer));
 	sprintf_s(wBuffer[OOCST], "O=%s|", MakeOOCST(Buffer));
-	sprintf_s(wBuffer[NOTE], "U=%s|", MakeNOTE(Buffer));
-	sprintf_s(wBuffer[DETR], "R=%s|", MakeDETR(Buffer));
+	sprintf_s(wBuffer[NOTE],  "U=%s|", MakeNOTE(Buffer));
+	sprintf_s(wBuffer[DETR],  "R=%s|", MakeDETR(Buffer));
 	sprintf_s(wBuffer[LOCAT], "@=%s|", MakeLOCAT(Buffer));
 	sprintf_s(wBuffer[HEADN], "$=%s|", MakeHEADN(Buffer));
 
@@ -995,7 +1068,7 @@ public:
 		InGroup = 52,
 		Leader = 53,
 		Updated = 54,
-		//    Duration=55,
+		Duration=55,
 		TotalAA = 56,
 		UsedAA = 57,
 		UnusedAA = 58,
@@ -1032,6 +1105,7 @@ public:
 		Location = 89,
 		Heading = 90,
 		StacksPet = 91,
+		ShortDuration=155,
 	};
 
 	MQ2NetBotsType() :MQ2Type("NetBots") {
@@ -1090,7 +1164,8 @@ public:
 		TypeMember(InGroup);
 		TypeMember(Leader);
 		TypeMember(Updated);
-		//    TypeMember(Duration);
+		TypeMember(Duration);
+		TypeMember(ShortDuration);
 		TypeMember(TotalAA);
 		TypeMember(UsedAA);
 		TypeMember(UnusedAA);
@@ -1420,27 +1495,60 @@ public:
 							return true;
 						}
 					break;
-					/*
-							case Duration:
-							  if(!Index[0]) {
-								Temps[0]=0;
-								for (Cpt=0; Cpt<BUFF_MAX && botRec->Duration[Cpt]; Cpt++) {
-								  sprintf_s(Works,"%d ",botRec->Duration[Cpt]);
-								  strcat_s(Temps,Works);
-								}
-								Dest.Ptr=Temps;
-								Dest.Type=pStringType;
-								return true;
-							  }
-							  Cpt=atoi(Index);
-							  if(Cpt<BUFF_MAX && Cpt>-1)
-						  //   WriteChatf("Duration: %d", botRec->Duration[Cpt]);
-								if(Dest.Int=botRec->Duration[Cpt]) {
-								  Dest.Type=pIntType;
-								  return true;
-								 }
-							  break;
-					*/
+					
+				case Duration:
+					if (!Index[0]) {
+						Temps[0] = '\0';
+						for (Cpt = 0; Cpt < BUFF_MAX && botRec->Duration[Cpt]; Cpt++) {
+							sprintf_s(Works, "%0.1f ", botRec->Duration[Cpt] == 28 || botRec->Duration[Cpt] < 0 ? 999999.0f : ((float)botRec->Duration[Cpt]) / 1000.0f);
+							strcat_s(Temps, Works);
+						}
+						Dest.Ptr = Temps;
+						Dest.Type = mq::datatypes::pStringType;
+						return true;
+					}
+					Cpt=atoi(Index);
+					if (Cpt<BUFF_MAX && Cpt>-1) {
+						Dest.Float = 0.0f;
+						Dest.Type = mq::datatypes::pFloatType;
+
+						// some permanent buffs report 28 all the time or are negative
+						if (botRec->Duration[Cpt] == 28 || botRec->Duration[Cpt] < 0) { 
+							Dest.Float = 999999.0f;
+						}
+						else if (botRec->Duration[Cpt] > 0) {
+							Dest.Float = ((float)botRec->Duration[Cpt]) / 1000.0f;
+						}
+						return true;
+					}
+				break;
+					
+				case ShortDuration:
+					if (!Index[0]) {
+						Temps[0] = '\0';
+						for (Cpt = 0; Cpt < SONG_MAX && botRec->ShortDuration[Cpt]; Cpt++) {
+							sprintf_s(Works, "%0.1f ", botRec->ShortDuration[Cpt] == 28 || botRec->ShortDuration[Cpt] < 0 ? 999999.0f : ((float)botRec->ShortDuration[Cpt]) / 1000.0f);
+							strcat_s(Temps, Works);
+						}
+						Dest.Ptr = Temps;
+						Dest.Type = mq::datatypes::pStringType;
+						return true;
+					}
+					Cpt=atoi(Index);
+					if (Cpt<SONG_MAX && Cpt>-1) {
+						Dest.Float = 0.0f;
+						Dest.Type = mq::datatypes::pFloatType;
+
+						// some permanent buffs report 28 all the time or are negative
+						if (botRec->ShortDuration[Cpt] == 28 || botRec->ShortDuration[Cpt] < 0) {
+							Dest.Float = 999999.0f;
+						}
+						else if (botRec->ShortDuration[Cpt] > 0) {
+							Dest.Float = ((float)botRec->ShortDuration[Cpt]) / 1000.0f;
+						}
+						return true;
+					}
+				break;
 				case ShortBuff:
 					if (!Index[0]) {
 						Temps[0] = 0;
@@ -1866,6 +1974,7 @@ PLUGIN_API VOID InitializePlugin(VOID) {
 	Packet.AddEvent("#*#[NB]#*#|R=#40#|#*#[NB]", ParseInfo, (void *)40);
 	Packet.AddEvent("#*#[NB]#*#|@=#89#|#*#[NB]", ParseInfo, (void *)89);
 	Packet.AddEvent("#*#[NB]#*#|$=#90#|#*#[NB]", ParseInfo, (void *)90);
+	Packet.AddEvent("#*#[NB]#*#|F=#155#|#*#[NB]", ParseInfo, (void *)155);
 
 	ZeroMemory(sTimers, sizeof(sTimers));
 	ZeroMemory(sBuffer, sizeof(sBuffer));
