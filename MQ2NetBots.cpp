@@ -138,7 +138,7 @@ int                 dValues[DSIZE];
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
 
 bool EQBCConnected() {
-	typedef WORD(__cdecl *fEqbcIsConnected)(VOID);
+	using fEqbcIsConnected = uint16_t(*)();
 	auto pLook = pPlugins;
 	while (pLook && _strnicmp(pLook->szFilename, "mq2eqbc", 8)) pLook = pLook->pNext;
 	if (pLook)
@@ -147,8 +147,8 @@ bool EQBCConnected() {
 	return false;
 }
 
-void EQBCBroadCast(PCHAR Buffer) {
-	typedef VOID(__cdecl *fEqbcNetBotSendMsg)(PCHAR);
+void EQBCBroadCast(const char* Buffer) {
+	using fEqbcNetBotSendMsg = void(*)(const char*);
 	if (strlen(Buffer) > 9) {
 		auto pLook = pPlugins;
 		while (pLook && _strnicmp(pLook->szFilename, "mq2eqbc", 8)) pLook = pLook->pNext;
@@ -162,12 +162,13 @@ void EQBCBroadCast(PCHAR Buffer) {
 	}
 }
 
-std::shared_ptr<BotInfo> BotLoad(PCHAR Name) {
+std::shared_ptr<BotInfo> BotLoad(const char* Name)
+{
 	BotInfo RecInfo;
 	ZeroMemory(&RecInfo.Name, sizeof(BotInfo));
 	strcpy_s(RecInfo.Name, Name);
-	auto& [f, _] = NetMap.emplace(RecInfo.Name, std::make_shared<BotInfo>(RecInfo));
-	return (*f).second;
+	auto [f, _] = NetMap.emplace(RecInfo.Name, std::make_shared<BotInfo>(RecInfo));
+	return f->second;
 }
 
 void BotQuit(PCHAR Name) {
