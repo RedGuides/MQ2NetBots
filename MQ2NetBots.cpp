@@ -2299,7 +2299,7 @@ public:
 						Dest.Type = mq::datatypes::pFloatType;
 						return true;
 					case Distance:
-						Dest.Float = Get3DDistance(pLocalPlayer->X, pLocalPlayer->Y, pLocalPlayer->Z, botRec->X, botRec->Y, botRec->Z);
+						Dest.Float = GetDistance(pLocalPlayer->X, pLocalPlayer->Y, pLocalPlayer->Z, botRec->X, botRec->Y, botRec->Z);
 						Dest.Type = mq::datatypes::pFloatType;
 						return true;
 					case Heading:
@@ -3906,7 +3906,7 @@ void WindowUpdate() {
 				isSelf = false;
 				if (pLocalPC && pLocalPC->zoneId == botInfo->ZoneID && pLocalPC->instance == botInfo->InstanceID) {
 					inZone = true;
-					Distance = static_cast<int>(std::round(Get3DDistance(pLocalPlayer->X, pLocalPlayer->Y, pLocalPlayer->Z, botInfo->X, botInfo->Y, botInfo->Z)));
+					Distance = static_cast<int>(std::round(GetDistance(pLocalPlayer->X, pLocalPlayer->Y, pLocalPlayer->Z, botInfo->X, botInfo->Y, botInfo->Z)));
 				} else {
 					inZone = false;
 					Distance = 0;
